@@ -1,0 +1,7 @@
+/* 入口文件：组合 PC 与 Mphone 页面样式 */
+@import url("/static/css/frontend.PC.tokens.css");
+@import url("/static/css/frontend.PC.layout.css");
+@import url("/static/css/frontend.PC.components.css");
+@import url("/static/css/frontend.PC.dashboard.css");
+@import url("/static/css/frontend.PC.modal.css");
+@import url("/static/css/frontend.Mphone.responsive.css");

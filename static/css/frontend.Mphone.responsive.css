@@ -1,0 +1,74 @@
+/* =========================
+   Mphone 响应式
+========================= */
+@media (max-width: 768px) {
+    .fd-pc-layout__sidebar {
+        transform: translateX(calc(-1 * var(--sidebar-width)));
+    }
+
+    .fd-pc-layout__sidebar.active {
+        transform: translateX(0);
+    }
+
+    .fd-pc-layout__main {
+        margin-left: 0;
+    }
+
+    .fd-mphone-nav__hamburger {
+        display: flex;
+    }
+
+    .fd-header {
+        padding-left: 60px;
+    }
+
+    .fd-pc-layout__content {
+        padding: 16px;
+    }
+
+    .fd-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .fd-stats__card {
+        padding: 12px;
+    }
+
+    .fd-stats__value {
+        font-size: 16px;
+    }
+
+    .fd-charts {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .fd-charts__container {
+        height: 280px;
+    }
+
+    table {
+        font-size: 12px;
+    }
+
+    th,
+    td {
+        padding: 8px 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .fd-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .fd-header h2 {
+        font-size: 16px;
+    }
+
+    .fd-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}

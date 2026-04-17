@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生消费统计及可视化平台</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link rel="icon" href="/static/icons/money-bag.png" type="image/png">
+    <link rel="stylesheet" href="/static/css/frontend.PC-Mphone.css">
+</head>
+<body class="fd-page">
+    <div class="fd-mphone-nav__hamburger" id="mphone-hamburger">
+        <span></span>
+        <span></span>
+        <span></span>
+    </div>
+    <div class="fd-mphone-nav__overlay" id="mphone-sidebar-overlay"></div>
+
+    <div class="fd-pc-layout__sidebar">
+        <div class="fd-pc-sidebar__logo">
+            <h1>学生消费统计及可视化平台</h1>
+        </div>
+        <div class="fd-pc-sidebar__menu">
+            <div class="fd-pc-sidebar__item active" data-page="overview">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span>首页概览</span>
+            </div>
+            <div class="fd-pc-sidebar__item" data-page="statistics">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                <span>数据统计</span>
+            </div>
+            <div class="fd-pc-sidebar__item" data-page="details">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span>消费明细</span>
+            </div>
+        </div>
+        <div class="fd-pc-sidebar__resize"></div>
+    </div>
+
+    <div class="fd-pc-layout__main">
+        <div class="fd-header">
+            <h2 id="page-title">数据概览</h2>
+            <div class="fd-header__actions">
+                <span id="pc-date-hint" class="fd-date-hint fd-hidden">已筛选：--</span>
+                <button type="button" id="pc-btn-date-clear" class="fd-btn fd-btn--outline fd-hidden">清除筛选</button>
+                <button type="button" id="pc-btn-date" class="fd-btn fd-btn--primary">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    日期筛选
+                </button>
+            </div>
+        </div>
+
+        <div class="fd-pc-layout__content">
+            <div class="fd-view active" id="view-overview">
+                <div class="fd-stats">
+                    <div class="fd-stats__card fd-stats__card--blue">
+                        <div class="fd-stats__label">总消费金额</div>
+                        <div class="fd-stats__value" id="pc-total-expense">¥0</div>
+                    </div>
+                    <div class="fd-stats__card fd-stats__card--green">
+                        <div class="fd-stats__label">日均消费</div>
+                        <div class="fd-stats__value" id="pc-daily-average">¥0</div>
+                    </div>
+                    <div class="fd-stats__card fd-stats__card--teal">
+                        <div class="fd-stats__label">数据周期</div>
+                        <div class="fd-stats__value fd-stats__date-range" id="pc-date-range-display">--</div>
+                    </div>
+                    <div class="fd-stats__card fd-stats__card--purple">
+                        <div class="fd-stats__label">记录总数</div>
+                        <div class="fd-stats__value" id="pc-record-count">0</div>
+                    </div>
+                </div>
+
+                <h2 class="fd-section-title">消费类别占比</h2>
+                <div class="fd-charts">
+                    <div class="fd-card">
+                        <div class="fd-card__header"><h3>消费类别占比</h3></div>
+                        <div class="fd-card__body"><div id="pc-category-chart" class="fd-charts__container"></div></div>
+                    </div>
+                    <div class="fd-card">
+                        <div class="fd-card__header"><h3>每日消费趋势</h3></div>
+                        <div class="fd-card__body"><div id="pc-trend-chart" class="fd-charts__container"></div></div>
+                    </div>
+                </div>
+
+                <h2 class="fd-section-title">消费明细</h2>
+                <div class="fd-card">
+                    <div class="fd-card__header"><h3>消费明细表</h3></div>
+                    <div class="fd-table">
+                        <table>
+                            <thead><tr id="pc-expense-thead"></tr></thead>
+                            <tbody id="pc-expense-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fd-view" id="view-statistics">
+                <h2 class="fd-section-title">数据统计</h2>
+                <div class="fd-charts">
+                    <div class="fd-card">
+                        <div class="fd-card__header"><h3>消费类别占比</h3></div>
+                        <div class="fd-card__body"><div id="pc-category-chart2" class="fd-charts__container"></div></div>
+                    </div>
+                    <div class="fd-card">
+                        <div class="fd-card__header"><h3>每日消费趋势</h3></div>
+                        <div class="fd-card__body"><div id="pc-trend-chart2" class="fd-charts__container"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fd-view" id="view-details">
+                <h2 class="fd-section-title">消费明细</h2>
+                <div class="fd-card">
+                    <div class="fd-card__header"><h3>消费明细表</h3></div>
+                    <div class="fd-table">
+                        <table>
+                            <thead><tr id="pc-expense-thead2"></tr></thead>
+                            <tbody id="pc-expense-table2"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pc-date-modal" class="fd-modal-overlay">
+        <div class="fd-modal">
+            <div class="fd-modal__header">
+                <h3>选择日期范围</h3>
+                <div class="fd-modal__close" id="pc-btn-date-cancel">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </div>
+            </div>
+            <div class="fd-modal__body">
+                <div class="fd-filter__row">
+                    <div class="fd-filter__col">
+                        <label class="fd-form-label">年份</label>
+                        <select id="pc-year-select" class="fd-form-select">
+                            <option value="">-- 年 --</option>
+                        </select>
+                    </div>
+                    <div class="fd-filter__col">
+                        <label class="fd-form-label">月份</label>
+                        <select id="pc-month-select" class="fd-form-select" disabled>
+                            <option value="">-- 月 --</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <div class="fd-filter__grid-header">
+                        <span class="fd-filter__grid-title">选择日期</span>
+                        <span id="pc-day-caption" class="fd-filter__caption"></span>
+                    </div>
+                    <div id="pc-day-grid" class="fd-filter__day-grid"></div>
+                </div>
+                <p class="fd-filter__tip">提示：选择年份可按年筛选，选择月份可按月筛选，选择日期可按日筛选</p>
+            </div>
+            <div class="fd-modal__footer">
+                <button type="button" id="pc-btn-date-cancel2" class="fd-btn fd-btn--outline">取消</button>
+                <button type="button" id="pc-btn-date-confirm" class="fd-btn fd-btn--primary">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 设置全局变量
+        let pcCategoryChart, pcTrendChart, pcCategoryChart2, pcTrendChart2;
+        let pcActiveFilter = { year: null, month: null, day: null };
+        let pcDateIndex = null;
+
+        function pcPad2(n) { return String(n).padStart(2, '0'); }
+        function pcDaysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+        // 图表初始化与渲染
+        function pcInitCharts() {
+            if (!pcCategoryChart) pcCategoryChart = echarts.init(document.getElementById('pc-category-chart'));
+            if (!pcTrendChart) pcTrendChart = echarts.init(document.getElementById('pc-trend-chart'));
+            if (!pcCategoryChart2) pcCategoryChart2 = echarts.init(document.getElementById('pc-category-chart2'));
+            if (!pcTrendChart2) pcTrendChart2 = echarts.init(document.getElementById('pc-trend-chart2'));
+        }
+
+        function pcRenderUI(data) {
+             // 更新统计卡片数值
+            document.getElementById('pc-total-expense').textContent = `¥${Number(data.total_expense || 0).toFixed(0)}`;
+            document.getElementById('pc-daily-average').textContent = `¥${Number(data.daily_average || 0).toFixed(0)}`;
+            document.getElementById('pc-record-count').textContent = (data.raw_table || []).length;
+            const dr = data.date_range || {};
+            document.getElementById('pc-date-range-display').textContent = (dr.min && dr.max) ? `${dr.min} ~ ${dr.max}` : '--';
+            // 确保图表实例存在
+            pcInitCharts();
+            // 准备饼图数据
+            const categoryData = Object.entries(data.category_expense || {}).map(([name, value]) => ({ name, value }));
+            // 准备折线图数据（按日期排序）
+            const trendDates = Object.keys(data.daily_trend || {}).sort();
+            const trendValues = trendDates.map(d => data.daily_trend[d]);
+            // 饼图配置
+            const chartOption = {
+                tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: ¥{c} ({d}%)' },
+                legend: { orient: 'vertical', left: 'left', textStyle: { color: '#333' } },
+                series: [{
+                    name: '消费类别', type: 'pie', radius: ['45%', '70%'], center: ['50%', '50%'],
+                    data: categoryData.length ? categoryData : [{ name: '暂无数据', value: 0 }],
+                    emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.5)' } },
+                    itemStyle: { color: (params) => ['#3b82f6', '#10b981', '#8b5cf6', '#0d9488', '#f59e0b', '#ef4444'][params.dataIndex % 6] }
+                }]
+            };
+            // 折线图配置
+            const trendOption = {
+                tooltip: { trigger: 'axis', formatter: params => params[0] ? `${params[0].name}<br/>消费金额: ¥${Number(params[0].value).toFixed(0)}` : '' },
+                // 留出空间给数据缩放滑块
+                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                // 底部滑动条
+                dataZoom: [{ type: 'slider', show: true, xAxisIndex: [0], start: 0, end: 100, bottom: 8 }, 
+                // 内置缩放（鼠标滚轮）
+                { type: 'inside', xAxisIndex: [0], start: 0, end: 100 }],
+                // 日期标签旋转45度
+                xAxis: { type: 'category', boundaryGap: false, data: trendDates, axisLabel: { rotate: 45 } },
+                yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+                series: [{
+                    name: '消费金额', type: 'line', data: trendValues, smooth: true,// 平滑曲线
+                    areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(59, 130, 246, 0.5)' }, { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }]) },
+                    // 渐变填充区域
+                    lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }
+                }]
+            };
+             // 应用配置到所有图表实例
+            pcCategoryChart.setOption(chartOption, true);
+            pcTrendChart.setOption(trendOption, true);
+            pcCategoryChart2.setOption(chartOption, true);
+            pcTrendChart2.setOption(trendOption, true);
+            // 动态生成表格行
+            const makeRow = (row) => {
+                const tr = document.createElement('tr');
+                ['日期', '类别', '金额'].forEach(key => {
+                    const td = document.createElement('td');
+                    let val = row[key] != null ? String(row[key]) : '';
+                    if (key === '金额' && val && val !== 'nan') val = '¥' + val;
+                    td.textContent = val === 'nan' ? '' : val;
+                    tr.appendChild(td);
+                });
+                return tr;
+            };
+            // 构建表头
+            const thead = document.getElementById('pc-expense-thead');
+            thead.innerHTML = '';
+            ['日期', '类别', '金额'].forEach(label => {
+                const th = document.createElement('th');
+                th.textContent = label;
+                thead.appendChild(th);
+            });
+            // 同步明细页表头
+            document.getElementById('pc-expense-thead2').innerHTML = thead.innerHTML;
+            // 填充表格数据（两个表格共用同一份数据）
+            const tableBody = document.getElementById('pc-expense-table');
+            tableBody.innerHTML = '';
+            const tableBody2 = document.getElementById('pc-expense-table2');
+            tableBody2.innerHTML = '';
+            (data.raw_table || []).forEach(row => {
+                tableBody.appendChild(makeRow(row));
+                tableBody2.appendChild(makeRow(row));
+            });
+        }
+        // 日期筛选相关函数
+        function pcBuildRangeFromFilter() {
+            if (!pcActiveFilter.year) return null;
+            const y = Number(pcActiveFilter.year);
+            if (pcActiveFilter.day) return { start: pcActiveFilter.day, end: pcActiveFilter.day, label: pcActiveFilter.day };
+            if (pcActiveFilter.month) {
+                const m = Number(pcActiveFilter.month);
+                return { start: `${y}-${pcPad2(m)}-01`, end: `${y}-${pcPad2(m)}-${pcPad2(pcDaysInMonth(y, m))}`, label: `${y}-${pcPad2(m)}` };
+            }
+            return { start: `${y}-01-01`, end: `${y}-12-31`, label: String(y) };
+        }
+        // 构造 API 请求 URL
+        function pcBuildStatisticsUrl() {
+            const range = pcBuildRangeFromFilter();
+            if (!range) return '/api/statistics';
+            return '/api/statistics?' + new URLSearchParams({ start_date: range.start, end_date: range.end });
+        }
+
+        function pcLoadStatistics() {
+            fetch(pcBuildStatisticsUrl()).then(r => r.json()).then(pcRenderUI).catch(e => console.error('Error:', e));
+        }
+
+        function pcLoadDateIndex() {
+            fetch('/api/date_index').then(r => r.json()).then(res => {
+                pcDateIndex = res && res.has_data ? res.date_index : null;
+                pcSetupYearOptions();
+            }).catch(() => { pcDateIndex = null; pcSetupYearOptions(); });
+        }
+
+        function pcUpdateDateHint() {
+            const range = pcBuildRangeFromFilter();
+            const hasFilter = !!range;
+            document.getElementById('pc-date-hint').classList.toggle('fd-hidden', !hasFilter);
+            if (hasFilter) document.getElementById('pc-date-hint').textContent = '已筛选：' + range.label;
+            document.getElementById('pc-btn-date-clear').classList.toggle('fd-hidden', !hasFilter);
+        }
+        // 日期模态框操作
+        const pcDateModal = document.getElementById('pc-date-modal');
+        const pcYearSelect = document.getElementById('pc-year-select');
+        const pcMonthSelect = document.getElementById('pc-month-select');
+        const pcDayGrid = document.getElementById('pc-day-grid');
+        const pcDayCaption = document.getElementById('pc-day-caption');
+        let pcTempSelection = { year: null, month: null, day: null };
+
+        function pcOpenDateModal() { pcDateModal.classList.add('show'); pcTempSelection = { ...pcActiveFilter }; pcApplyTempSelectionToUI(); }
+        function pcCloseDateModal() { pcDateModal.classList.remove('show'); }
+
+        function pcSetFilterAndRefresh(filter) {
+            pcActiveFilter = filter || { year: null, month: null, day: null };
+            pcUpdateDateHint();
+            pcLoadStatistics();
+        }
+
+        function pcSetupYearOptions() {
+            pcYearSelect.innerHTML = '<option value="">-- 年 --</option>';
+            pcMonthSelect.innerHTML = '<option value="">-- 月 --</option>';
+            pcMonthSelect.disabled = true;
+            pcDayGrid.innerHTML = '';
+            pcDayCaption.textContent = '';
+            const years = (pcDateIndex && pcDateIndex.years) ? pcDateIndex.years : [];
+            years.forEach(y => pcYearSelect.appendChild(new Option(String(y), String(y))));
+            pcApplyTempSelectionToUI();
+        }
+
+        function pcMonthsForYear(y) { return (pcDateIndex && pcDateIndex.months_by_year) ? (pcDateIndex.months_by_year[String(y)] || []) : []; }
+        function pcDaysForYearMonth(y, m) { return (pcDateIndex && pcDateIndex.days_by_year_month) ? (pcDateIndex.days_by_year_month[`${y}-${pcPad2(m)}`] || []) : []; }
+
+        function pcRenderDayGrid(y, m) {
+            pcDayGrid.innerHTML = '';
+            if (!y || !m) { pcDayCaption.textContent = ''; return; }
+            const dim = pcDaysInMonth(Number(y), Number(m));
+            const available = new Set(pcDaysForYearMonth(y, m));
+            pcDayCaption.textContent = `${y}-${pcPad2(m)}（${available.size}天有数据）`;
+            // 添加星期标题
+            ['一', '二', '三', '四', '五', '六', '日'].forEach(w => pcDayGrid.appendChild(Object.assign(document.createElement('div'), { className: 'fd-filter__weekday', textContent: w })));
+            // 计算第一天是星期几（周一为一周开始）
+            const offset = (new Date(Number(y), Number(m) - 1, 1).getDay() + 6) % 7;
+            for (let i = 0; i < offset; i++) pcDayGrid.appendChild(document.createElement('div'));
+            for (let d = 1; d <= dim; d++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'fd-filter__day-btn ' + (available.has(d) ? 'is-enabled' : 'is-disabled');
+                btn.textContent = d;
+                if (available.has(d)) btn.onclick = () => { pcTempSelection.day = `${y}-${pcPad2(m)}-${pcPad2(d)}`; pcHighlightSelectedDay(); };
+                btn.dataset.day = d;
+                pcDayGrid.appendChild(btn);
+            }
+            pcHighlightSelectedDay();
+        }
+
+        function pcHighlightSelectedDay() {
+            const y = pcTempSelection.year, m = pcTempSelection.month, day = pcTempSelection.day;
+            const selectedD = (day && y && m && day.startsWith(`${y}-${pcPad2(m)}-@`)) ? Number(day.slice(8, 10)) : null;
+            pcDayGrid.querySelectorAll('button.fd-filter__day-btn.is-enabled').forEach(b => b.classList.toggle('is-selected', selectedD === Number(b.dataset.day)));
+        }
+
+        function pcApplyTempSelectionToUI() {
+            pcYearSelect.value = pcTempSelection.year ? String(pcTempSelection.year) : '';
+            pcMonthSelect.innerHTML = '<option value="">-- 月 --</option>';
+            if (pcTempSelection.year) {
+                const months = pcMonthsForYear(pcTempSelection.year);
+                for (let m = 1; m <= 12; m++) {
+                    const opt = new Option(String(m) + ' 月', String(m));
+                    if (months.indexOf(m) === -1) opt.disabled = true;
+                    pcMonthSelect.appendChild(opt);
+                }
+                pcMonthSelect.disabled = false;
+                pcMonthSelect.value = pcTempSelection.month ? String(pcTempSelection.month) : '';
+            } else {
+                pcMonthSelect.disabled = true;
+                pcTempSelection.month = null;
+                pcTempSelection.day = null;
+            }
+            pcRenderDayGrid(pcTempSelection.year, pcTempSelection.month);
+        }
+        // 日期选择器事件绑定
+        pcYearSelect.onchange = function() { pcTempSelection.year = pcYearSelect.value ? Number(pcYearSelect.value) : null; pcTempSelection.month = null; pcTempSelection.day = null; pcApplyTempSelectionToUI(); };
+        pcMonthSelect.onchange = function() { pcTempSelection.month = pcMonthSelect.value ? Number(pcMonthSelect.value) : null; pcTempSelection.day = null; pcRenderDayGrid(pcTempSelection.year, pcTempSelection.month); };
+        document.getElementById('pc-btn-date-cancel').onclick = pcCloseDateModal;
+        document.getElementById('pc-btn-date-cancel2').onclick = pcCloseDateModal;
+        document.getElementById('pc-btn-date-confirm').onclick = () => { pcCloseDateModal(); pcSetFilterAndRefresh(pcTempSelection); };
+        document.getElementById('pc-btn-date').onclick = pcOpenDateModal;
+        document.getElementById('pc-btn-date-clear').onclick = () => { pcActiveFilter = { year: null, month: null, day: null }; pcUpdateDateHint(); pcLoadStatistics(); };
+        // 菜单切换（视图跳转）
+        const pcPageTitleMap = { overview: '数据概览', statistics: '数据统计', details: '消费明细' };
+
+        document.querySelectorAll('.fd-pc-sidebar__item[data-page]').forEach(item => {
+            item.onclick = function() {
+                const page = this.dataset.page;
+                // 更新菜单激活样式
+                document.querySelectorAll('.fd-pc-sidebar__item').forEach(m => m.classList.remove('active'));
+                this.classList.add('active');
+                // 切换视图显示
+                document.querySelectorAll('.fd-view').forEach(s => s.classList.remove('active'));
+                document.getElementById(`view-${page}`).classList.add('active');
+                // 更新顶部标题
+                document.getElementById('page-title').textContent = pcPageTitleMap[page];
+                // 图表容器尺寸自适应（因为显示/隐藏导致尺寸变化）
+                setTimeout(() => {
+                    pcCategoryChart && pcCategoryChart.resize();
+                    pcTrendChart && pcTrendChart.resize();
+                    pcCategoryChart2 && pcCategoryChart2.resize();
+                    pcTrendChart2 && pcTrendChart2.resize();
+                }, 50);
+                // 移动端点击菜单后自动收起侧边栏
+                if (window.innerWidth <= 768) mphoneToggleSidebar();
+                window.scrollTo(0, 0);
+            };
+        });
+        // 侧边栏汉堡菜单与遮罩
+        const mphoneHamburger = document.getElementById('mphone-hamburger');
+        const pcSidebar = document.querySelector('.fd-pc-layout__sidebar');
+        const mphoneOverlay = document.getElementById('mphone-sidebar-overlay');
+        function mphoneToggleSidebar() { pcSidebar.classList.toggle('active'); mphoneHamburger.classList.toggle('active'); mphoneOverlay.classList.toggle('show'); }
+        mphoneHamburger.onclick = mphoneToggleSidebar;
+        mphoneOverlay.onclick = mphoneToggleSidebar;
+        // 侧边栏宽度拖拽调整
+        const pcResizeHandle = document.querySelector('.fd-pc-sidebar__resize');
+        const pcMainContent = document.querySelector('.fd-pc-layout__main');
+        let pcIsResizing = false;
+        let pcPendingWidth = null;
+        let pcRafId = null;
+        let pcCurrentWidth = 240;
+
+        function pcResizeAllCharts() {
+            pcCategoryChart && pcCategoryChart.resize();
+            pcTrendChart && pcTrendChart.resize();
+            pcCategoryChart2 && pcCategoryChart2.resize();
+            pcTrendChart2 && pcTrendChart2.resize();
+        }
+
+        function pcGetSidebarMaxWidth() {
+            // 保证主内容区至少保留可读宽度，防止右侧内容被挤出屏幕
+            const minMainWidth = 640;
+            return Math.max(220, Math.min(420, window.innerWidth - minMainWidth));
+        }
+
+        function pcApplyResizeWidth(width) {
+            pcSidebar.style.width = width + 'px';
+            pcMainContent.style.marginLeft = width + 'px';
+            pcMainContent.style.width = `calc(100% - ${width}px)`;
+            pcCurrentWidth = width;
+            pcResizeAllCharts();
+        }
+
+        function pcScheduleResize(width) {
+            pcPendingWidth = width;
+            if (pcRafId) return;
+            pcRafId = requestAnimationFrame(() => {
+                pcApplyResizeWidth(pcPendingWidth);
+                pcRafId = null;
+            });
+        }
+        pcResizeHandle.addEventListener('mousedown', (e) => {
+            if (window.innerWidth <= 768) return;
+            pcIsResizing = true;
+            pcCurrentWidth = pcSidebar.getBoundingClientRect().width || 240;
+            pcSidebar.classList.add('is-resizing');
+            pcMainContent.classList.add('is-resizing');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!pcIsResizing) return;
+            const minWidth = 180;
+            const maxWidth = pcGetSidebarMaxWidth();
+            const width = Math.max(minWidth, Math.min(maxWidth, e.clientX));
+            pcScheduleResize(width);
+        });
+        document.addEventListener('mouseup', () => {
+            if (pcIsResizing) {
+                if (pcRafId) {
+                    cancelAnimationFrame(pcRafId);
+                    pcApplyResizeWidth(pcPendingWidth);
+                    pcRafId = null;
+                }
+                pcMainContent.style.marginLeft = pcCurrentWidth + 'px';
+                pcIsResizing = false;
+                pcSidebar.classList.remove('is-resizing');
+                pcMainContent.classList.remove('is-resizing');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+        window.addEventListener('resize', () => {
+            if (window.innerWidth <= 768) {
+                pcSidebar.style.width = '';
+                pcMainContent.style.marginLeft = '';
+                pcMainContent.style.width = '';
+                pcResizeAllCharts();
+                return;
+            }
+            const maxWidth = pcGetSidebarMaxWidth();
+            if (pcCurrentWidth > maxWidth) {
+                pcApplyResizeWidth(maxWidth);
+            } else {
+                pcResizeAllCharts();
+            }
+        });
+        // 初始化数据加载
+        pcLoadStatistics();
+        pcLoadDateIndex();
+    </script>
+</body>
+</html>

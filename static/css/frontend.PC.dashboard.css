@@ -1,0 +1,108 @@
+/* =========================
+   统计卡片与图表
+========================= */
+.fd-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.fd-stats__card {
+    padding: 16px;
+    color: #fff;
+    border-radius: var(--radius-lg);
+}
+
+.fd-stats__card.fd-stats__card--blue {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.fd-stats__card.fd-stats__card--green {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.fd-stats__card.fd-stats__card--teal {
+    background: linear-gradient(135deg, #0d9488, #0f766e);
+}
+
+.fd-stats__card.fd-stats__card--purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.fd-stats__label {
+    margin-bottom: 4px;
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.fd-stats__value {
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.fd-stats__date-range {
+    font-size: 16px;
+}
+
+.fd-charts {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.fd-card__header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.fd-card__header h3 {
+    color: #374151;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.fd-card__body {
+    padding: 16px;
+}
+
+.fd-charts__container {
+    width: 100%;
+    height: 350px;
+}
+
+/* =========================
+   表格
+========================= */
+.fd-table {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    background: #f9fafb;
+    border-bottom: 1px solid var(--color-border);
+}
+
+td {
+    padding: 12px 16px;
+    color: #374151;
+    font-size: 14px;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+tr:hover td {
+    background: #f9fafb;
+}
