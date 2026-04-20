@@ -11,10 +11,10 @@
     <!-- ECharts：饼图、折线图、dataZoom；需先于内联脚本加载完成 -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <link rel="icon" href="/static/icons/money-bag.png" type="image/png">
-    <!-- 样式唯一入口；子表通过 @import 链入，改 CSS 后提高 ?v= 可强刷缓存 -->
-    <link rel="stylesheet" href="/static/css/frontend.PC-Mphone.css?v=19">
+    <!-- 样式唯一入口；子表通过 @import 链入 -->
+    <link rel="stylesheet" href="/static/css/frontend.PC-Mphone.css">
 </head>
-<body class="fd-page">
+<body>
     <!-- ========== 窄屏导航：汉堡 + 全屏遮罩（桌面端 CSS 隐藏汉堡；抽屉打开时显示遮罩并给侧栏 .active） ========== -->
     <!-- 三线图标按钮：fixed 左上角，点击由脚本切换 .active 与侧栏 .active，三条 span 旋转成 X -->
     <div class="fd-mphone-nav__hamburger" id="mphone-hamburger">
@@ -305,7 +305,7 @@
                 zoomFill: 'rgba(111, 118, 216, 0.28)',
                 empty: '#cbd5e1',
                 pieBorder: 'rgba(255, 255, 255, 0.9)',
-                symbolFill: '#FFFFFF',
+                symbolFill: '#3b82f6',
                 axisLine: '#c0cce5',
                 handleBorder: '#c0cce5',
                 handleShadow: 'rgba(49, 46, 130, 0.1)'

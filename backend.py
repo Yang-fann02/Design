@@ -73,6 +73,18 @@ def get_all_expenses():
     return pd.DataFrame(data)
 
 
+def _empty_stats():
+    """返回无数据时的统计结果骨架。"""
+    return {
+        "total_expense": 0,
+        "daily_average": 0,
+        "category_expense": {},
+        "daily_trend": {},
+        "date_range": {"min": None, "max": None},
+        "raw_table": [],
+    }
+
+
 def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=None):
     """
     按筛选条件汇总消费数据，供前端图表与表格使用。
@@ -94,14 +106,7 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
     """
     df = get_all_expenses()
     if df.empty:
-        return {
-            "total_expense": 0,
-            "daily_average": 0,
-            "category_expense": {},
-            "daily_trend": {},
-            "date_range": {"min": None, "max": None},
-            "raw_table": [],
-        }
+        return _empty_stats()
     if "金额" in df.columns:
         df["金额"] = pd.to_numeric(df["金额"], errors="coerce")
     if "日期" in df.columns:
@@ -134,14 +139,7 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
             df = df[df["日期"] <= end_date]
 
     if df.empty:
-        return {
-            "total_expense": 0,
-            "daily_average": 0,
-            "category_expense": {},
-            "daily_trend": {},
-            "date_range": {"min": None, "max": None},
-            "raw_table": [],
-        }
+        return _empty_stats()
 
     total = round(df["金额"].sum(), 2)
     day_count = int(df["日期"].nunique())

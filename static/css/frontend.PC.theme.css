@@ -83,6 +83,11 @@
 /* JS 在暗色时给按钮加 .fd-theme-toggle--dark：thumb 右移、月亮高亮 */
 .fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__thumb {
     transform: translateX(26px);
+    background: #64748b;
+    border-color: rgba(15, 23, 42, 0.5);
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__icon--sun {
@@ -100,14 +105,6 @@
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.08),
         inset 0 -1px 0 rgba(0, 0, 0, 0.25);
-}
-
-.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__thumb {
-    background: #64748b;
-    border-color: rgba(15, 23, 42, 0.5);
-    box-shadow:
-        0 2px 10px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* =========================
@@ -134,6 +131,8 @@ html[data-theme="dark"] {
     --glass-table-header: rgba(45, 55, 72, 0.75);
     --glass-table-row-hover: rgba(55, 65, 85, 0.45);
     --glass-saturate: 1.45;
+    --glow-primary: rgba(139, 147, 235, 0.3);
+    --glow-teal: rgba(20, 184, 166, 0.25);
 }
 
 html[data-theme="dark"] body {
@@ -167,6 +166,7 @@ html[data-theme="dark"] .fd-pc-sidebar__item {
 
 html[data-theme="dark"] .fd-pc-sidebar__item:hover:not(.active) {
     background: #334155;
+    transform: translateX(4px);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.1),
         inset 0 -1px 0 rgba(0, 0, 0, 0.15);
@@ -264,6 +264,27 @@ html[data-theme="dark"] .fd-filter__tip {
 
 html[data-theme="dark"] .fd-card {
     border-color: rgba(71, 85, 105, 0.55);
+}
+
+html[data-theme="dark"] .fd-card:hover {
+    border-color: rgba(139, 147, 235, 0.3);
+}
+
+html[data-theme="dark"] .fd-stats__card:hover {
+    box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+html[data-theme="dark"] .fd-btn--primary:hover {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 8px 28px rgba(0, 0, 0, 0.3),
+        0 0 20px var(--glow-primary);
+}
+
+html[data-theme="dark"] .fd-filter__day-btn.is-selected {
+    box-shadow: 0 0 14px var(--glow-teal);
 }
 
 /* 暗色下「明亮」态开关：太阳图标略提亮作提示（按钮尚未加 --dark 时） */

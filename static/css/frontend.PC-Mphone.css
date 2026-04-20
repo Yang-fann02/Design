@@ -1,9 +1,8 @@
-/* frontend.PC-Mphone.css — 样式唯一入口：按顺序串联各分表，与 frontend.html 中的 <link> 对应。
-   修改子表后通常需同步提高各 @import 的 ?v= 以绕过浏览器缓存。 */
-@import url("/static/css/frontend.PC.tokens.css?v=19");
-@import url("/static/css/frontend.PC.layout.css?v=19");
-@import url("/static/css/frontend.PC.theme.css?v=19");
-@import url("/static/css/frontend.PC.components.css?v=19");
-@import url("/static/css/frontend.PC.dashboard.css?v=19");
-@import url("/static/css/frontend.PC.modal.css?v=19");
-@import url("/static/css/frontend.Mphone.responsive.css?v=19");
+/* frontend.PC-Mphone.css — 样式唯一入口：按顺序串联各分表，与 frontend.html 中的 <link> 对应。 */
+@import url("/static/css/frontend.PC.tokens.css");
+@import url("/static/css/frontend.PC.layout.css");
+@import url("/static/css/frontend.PC.theme.css");
+@import url("/static/css/frontend.PC.components.css");
+@import url("/static/css/frontend.PC.dashboard.css");
+@import url("/static/css/frontend.PC.modal.css");
+@import url("/static/css/frontend.Mphone.responsive.css");

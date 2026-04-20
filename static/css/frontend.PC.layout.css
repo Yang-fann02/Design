@@ -19,7 +19,7 @@
     height: 100dvh;
     /* 新建合成层，减少滚动时与主区的重绘闪烁 */
     transform: translateZ(0);
-    border-radius: var(--sidebar-radius);
+    border-radius: var(--sidebar-radius) 10px 10px var(--sidebar-radius);
     overflow: hidden;
     isolation: isolate;
     border: none;
@@ -90,11 +90,16 @@
 .fd-pc-sidebar__item:hover:not(.active) {
     color: var(--color-text-primary);
     background: #e2e8f0;
+    transform: translateX(4px);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
         inset 0 -1px 0 rgba(15, 23, 42, 0.04);
     -webkit-backdrop-filter: saturate(1.72) brightness(0.97);
     backdrop-filter: saturate(1.72) brightness(0.97);
+}
+
+.fd-pc-sidebar__item:hover:not(.active) svg {
+    transform: scale(1.15);
 }
 
 /* 当前页菜单项：主色强调底 */
@@ -163,7 +168,11 @@
 }
 
 .fd-pc-sidebar__resize:hover {
-    background: rgba(148, 163, 184, 0.22);
+    background: var(--color-primary);
+    opacity: 0.4;
+    transition:
+        background var(--duration-normal) var(--ease-smooth),
+        opacity var(--duration-normal) var(--ease-smooth);
 }
 
 /* 窄屏抽屉打开时盖住主内容的全屏遮罩；默认 display:none，.show 时显示 */
@@ -349,13 +358,25 @@ html[data-theme="dark"] .fd-header__toolbar {
     padding: 24px;
 }
 
-/* 单页多视图：仅 .active 的 #view-* 显示 */
+/* 单页多视图：仅 .active 的 #view-* 显示，带入场动画 */
 .fd-view {
     display: none;
 }
 
 .fd-view.active {
     display: block;
+    animation: fd-view-enter 0.5s var(--ease-out-expo) both;
+}
+
+@keyframes fd-view-enter {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* 不支持 backdrop-filter：侧栏/顶栏/汉堡去掉模糊，改为实色 + 普通阴影，保证可读性 */
