@@ -1,34 +1,115 @@
+/* frontend.Mphone.responsive.css — 窄屏（≤768px）：侧栏抽屉、主区全宽、汉堡显示、顶栏与表格等间距调整。
+   由 frontend.PC-Mphone.css 末尾 @import；改后请同步提高 ?v= 以便缓存刷新。 */
 /* =========================
    Mphone 响应式
 ========================= */
 @media (max-width: 768px) {
-    .fd-pc-layout__sidebar {
-        transform: translateX(calc(-1 * var(--sidebar-width)));
+    /*
+     * 主区宽度（关键）：桌面用 width: calc(100% - 侧栏宽)。窄屏侧栏已 fixed 移出文档流，
+     * 若仍保留 calc 则主区只占约「屏宽 - 240px」，右侧会出现大块空白；此处强制全宽。
+     * 若桌面拖拽曾写入 style，resize 监听器会清空；此处再保证与 CSS 一致。
+     */
+    .fd-pc-layout__main {
+        margin-left: 0;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
+    /* 侧栏：从「贴左全高条」改为「浮层卡片」，默认整体移到视口左侧外，形成抽屉 */
+    .fd-pc-layout__sidebar {
+        /* 与屏幕边缘留出空隙，避免贴边 */
+        top: var(--sidebar-inset);
+        bottom: var(--sidebar-inset);
+        left: var(--sidebar-inset);
+        /* 宽度不超过设计侧栏宽，且左右各留 inset */
+        width: min(calc(100vw - var(--sidebar-inset) * 2), var(--sidebar-width));
+        max-width: 300px;
+        height: auto;
+        min-height: calc(100dvh - var(--sidebar-inset) * 2);
+        max-height: calc(100dvh - var(--sidebar-inset) * 2);
+        /* 默认收起：向左移出屏幕（负向位移略大于自身宽度，避免边缘露边） */
+        transform: translateX(calc(-100% - var(--sidebar-inset) * 2 - 20px));
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(203, 213, 225, 0.55);
+        border-right: 1px solid rgba(203, 213, 225, 0.55);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+            inset 0 -1px 0 rgba(15, 23, 42, 0.06),
+            0 24px 56px rgba(15, 23, 42, 0.14),
+            0 8px 24px rgba(25, 45, 80, 0.08);
+    }
+
+    /* 抽屉打开：JS 会给侧栏加 .active，取消横向位移，侧栏滑入可视区域 */
     .fd-pc-layout__sidebar.active {
         transform: translateX(0);
     }
 
-    .fd-pc-layout__main {
-        margin-left: 0;
-    }
-
+    /* 汉堡按钮：窄屏才显示（桌面端 layout 里为 display:none），用 flex 居中三条横线 */
     .fd-mphone-nav__hamburger {
         display: flex;
     }
 
+    /* 顶栏：左右边距略收；左侧为 fixed 汉堡预留内边距 */
     .fd-header {
-        padding-left: 60px;
+        margin: 0 12px 8px;
+        padding: 10px 12px 10px 56px;
+        gap: 8px;
     }
 
+    /*
+     * 标题行：允许换行。桌面 nowrap + 标题 flex:1 在窄宽下会把标题压成极窄竖条（中文一字一行像竖排）。
+     * 窄屏改为标题独占一行全宽，工具条下一行右对齐。
+     */
+    .fd-header__row {
+        flex-wrap: wrap;
+        align-items: center;
+        max-width: 100%;
+        overflow-x: visible;
+        row-gap: 10px;
+    }
+
+    .fd-header__title {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 0;
+        font-size: 17px;
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .fd-header__toolbar {
+        flex: 1 1 auto;
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+
+    /* 筛选提示与清除按钮：仍靠右对齐，但允许占满一行换行 */
+    .fd-header__filters {
+        justify-content: flex-end;
+        max-width: 100%;
+    }
+
+    .fd-header__filters .fd-date-hint {
+        max-width: 100%;
+    }
+
+    /* 主内容区：全宽内边距，避免与主区宽度重复计算产生横向滚动 */
     .fd-pc-layout__content {
-        padding: 16px;
+        padding: 12px 12px 20px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
+    /* 指标卡：两列均分当前主区宽度（主区已为 100%） */
     .fd-stats {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
+        width: 100%;
     }
 
     .fd-stats__card {
@@ -39,11 +120,34 @@
         font-size: 16px;
     }
 
+    /* 图表区：单列全宽堆叠 */
     .fd-charts {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
+        width: 100%;
     }
 
+    .fd-card {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .fd-section-title {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 各路由视图块占满主区宽度，避免内部 grid 百分比参照错误窄父级 */
+    .fd-view {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* ECharts 容器高度略减，避免一屏内图表过长 */
     .fd-charts__container {
         height: 280px;
     }
@@ -56,14 +160,20 @@
     td {
         padding: 8px 10px;
     }
+
+    /* 明细表滚动区域：行高略低，最大高度与约 10 行对齐，便于拇指滑动 */
+    .fd-table.fd-table--body-cap {
+        max-height: calc(40px + 10 * 42px);
+    }
 }
 
+/* 超窄屏：指标改单列，标题与按钮字号/内边距再收一档 */
 @media (max-width: 480px) {
     .fd-stats {
         grid-template-columns: 1fr;
     }
 
-    .fd-header h2 {
+    .fd-header__title {
         font-size: 16px;
     }
 

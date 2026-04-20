@@ -1,0 +1,314 @@
+/* frontend.PC.theme.css — ① 顶栏内明暗开关（.fd-theme-toggle）结构与动画；② html[data-theme="dark"] 下全局变量与侧栏/顶栏/弹窗/表单等覆盖。
+   明亮为默认（不设 data-theme）；本文件后半以暗色为主。 */
+/* =========================
+   顶栏内主题切换（与日期筛选同在 .fd-header__toolbar，与标题同在 .fd-header__row）
+========================= */
+/* 开关整体：透明底，由内部 track + thumb + 图标叠成 */
+.fd-theme-toggle {
+    position: relative;
+    width: 56px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    background: transparent;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.fd-theme-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+}
+
+/* 底层滑槽：浅灰圆角条 */
+.fd-theme-toggle__track {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: #e2e8f0;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        inset 0 -1px 0 rgba(15, 23, 42, 0.06);
+}
+
+/* 日月图标：不参与点击（pointer-events:none），仅装饰 */
+.fd-theme-toggle__icon {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    width: 16px;
+    height: 16px;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+    transition: color 0.25s ease, opacity 0.25s ease;
+}
+
+.fd-theme-toggle__icon svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.fd-theme-toggle__icon--sun {
+    left: 8px;
+    opacity: 0.95;
+}
+
+.fd-theme-toggle__icon--moon {
+    right: 7px;
+    opacity: 0.55;
+}
+
+/* 可拖动视觉块：明亮态靠左表示「当前明亮」 */
+.fd-theme-toggle__thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    box-shadow:
+        0 2px 8px rgba(15, 23, 42, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    z-index: 2;
+}
+
+/* JS 在暗色时给按钮加 .fd-theme-toggle--dark：thumb 右移、月亮高亮 */
+.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__thumb {
+    transform: translateX(26px);
+}
+
+.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__icon--sun {
+    opacity: 0.45;
+}
+
+.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__icon--moon {
+    opacity: 1;
+    color: #cbd5e1;
+}
+
+.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__track {
+    background: #334155;
+    border-color: rgba(71, 85, 105, 0.65);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.fd-theme-toggle.fd-theme-toggle--dark .fd-theme-toggle__thumb {
+    background: #64748b;
+    border-color: rgba(15, 23, 42, 0.5);
+    box-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* =========================
+   暗色主题（明亮 = 默认，不写 data-theme 或 data-theme="light"）
+========================= */
+/* 在根上重写 CSS 变量：子树内凡用 var(--color-*) 的组件自动跟暗色 */
+html[data-theme="dark"] {
+    background-color: #0f172a;
+    --color-bg: #1e293b;
+    --color-surface: #1e293b;
+    --color-text-primary: #e8edf4;
+    --color-text-secondary: #a8b6ca;
+    --color-text-muted: #7c8ca1;
+    --color-border: #3d4d63;
+    --color-border-light: #2f3d4f;
+    --color-primary: #8b93eb;
+    --color-primary-hover: #a4aaf0;
+    --shadow-ink: 15, 23, 42;
+    --glass-surface: rgba(30, 38, 52, 0.55);
+    --glass-card: rgba(28, 35, 48, 0.58);
+    --glass-modal: rgba(32, 40, 54, 0.72);
+    --glass-edge-light: rgba(255, 255, 255, 0.12);
+    --glass-edge-faint: rgba(255, 255, 255, 0.06);
+    --glass-table-header: rgba(45, 55, 72, 0.75);
+    --glass-table-row-hover: rgba(55, 65, 85, 0.45);
+    --glass-saturate: 1.45;
+}
+
+html[data-theme="dark"] body {
+    background-color: #0f172a;
+    background-image: none;
+}
+
+/* 侧栏：深蓝底 + 略压暗的模糊，与明亮区分 */
+html[data-theme="dark"] .fd-pc-layout__sidebar {
+    border-right-color: rgba(71, 85, 105, 0.55);
+    background: #1e293b;
+    -webkit-backdrop-filter: blur(1px) saturate(1.55) brightness(0.92) contrast(1.05);
+    backdrop-filter: blur(1px) saturate(1.55) brightness(0.92) contrast(1.05);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+        inset 1px 0 0 rgba(255, 255, 255, 0.05),
+        16px 0 52px -18px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .fd-pc-sidebar__logo {
+    border-bottom-color: rgba(71, 85, 105, 0.45);
+    background: #243248;
+    -webkit-backdrop-filter: saturate(1.4) brightness(0.94);
+    backdrop-filter: saturate(1.4) brightness(0.94);
+}
+
+html[data-theme="dark"] .fd-pc-sidebar__item {
+    color: var(--color-text-secondary);
+}
+
+html[data-theme="dark"] .fd-pc-sidebar__item:hover:not(.active) {
+    background: #334155;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+    -webkit-backdrop-filter: saturate(1.35) brightness(0.95);
+    backdrop-filter: saturate(1.35) brightness(0.95);
+}
+
+html[data-theme="dark"] .fd-pc-sidebar__item.active {
+    color: var(--color-primary-hover);
+    background: #3d4a6e;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px rgba(139, 147, 235, 0.35);
+    -webkit-backdrop-filter: saturate(1.45) brightness(0.96);
+    backdrop-filter: saturate(1.45) brightness(0.96);
+}
+
+html[data-theme="dark"] .fd-header {
+    background: #1e293b;
+    -webkit-backdrop-filter: blur(1px) saturate(1.55) brightness(0.92) contrast(1.05);
+    backdrop-filter: blur(1px) saturate(1.55) brightness(0.92) contrast(1.05);
+    border-color: rgba(71, 85, 105, 0.55);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+        0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* 弹窗遮罩与面板：暗色下更高对比、略深背景 */
+html[data-theme="dark"] .fd-modal-overlay {
+    background: rgba(2, 6, 23, 0.52);
+    -webkit-backdrop-filter: blur(10px) saturate(1.25);
+    backdrop-filter: blur(10px) saturate(1.25);
+}
+
+html[data-theme="dark"] .fd-modal {
+    background: rgba(30, 41, 59, 0.88);
+    border-color: rgba(148, 163, 184, 0.35);
+    -webkit-backdrop-filter: blur(18px) saturate(1.45) brightness(0.96);
+    backdrop-filter: blur(18px) saturate(1.45) brightness(0.96);
+    box-shadow:
+        var(--shadow-modal),
+        0 24px 64px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .fd-modal::before {
+    background: linear-gradient(175deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 40%, transparent 58%);
+    opacity: 1;
+}
+
+/* 日期筛选：下拉深色底 + 浅色 SVG 箭头 data URI */
+html[data-theme="dark"] .fd-form-select {
+    color: var(--color-text-primary);
+    background-color: rgba(15, 23, 42, 0.65);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a8b6ca' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    border-color: rgba(71, 85, 105, 0.75);
+}
+
+html[data-theme="dark"] .fd-form-select:disabled {
+    color: var(--color-text-muted);
+    background-color: rgba(15, 23, 42, 0.45);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237c8ca1' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+html[data-theme="dark"] .fd-filter__day-grid {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(71, 85, 105, 0.65);
+}
+
+html[data-theme="dark"] .fd-date-filter__section {
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(71, 85, 105, 0.55);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html[data-theme="dark"] .fd-date-filter__section-title {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] .fd-filter__tip-wrap {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(71, 85, 105, 0.55);
+    border-left-color: var(--color-teal);
+}
+
+html[data-theme="dark"] .fd-filter__tip {
+    color: var(--color-text-secondary);
+    opacity: 1;
+}
+
+html[data-theme="dark"] .fd-card {
+    border-color: rgba(71, 85, 105, 0.55);
+}
+
+/* 暗色下「明亮」态开关：太阳图标略提亮作提示（按钮尚未加 --dark 时） */
+html[data-theme="dark"] .fd-theme-toggle:not(.fd-theme-toggle--dark) .fd-theme-toggle__icon--sun {
+    opacity: 1;
+    color: #ca8a04;
+}
+
+html[data-theme="dark"] .fd-filter__day-btn.is-enabled {
+    background: rgba(51, 65, 85, 0.65);
+    color: var(--color-text-primary);
+}
+
+html[data-theme="dark"] .fd-filter__day-btn.is-selected {
+    background: rgba(99, 106, 168, 0.55);
+}
+
+/*
+ * 窄屏汉堡按钮：明亮主题下为白底 + var(--color-text-primary) 深色线。
+ * 暗色主题若仍用白底而文字色已改为浅色，会出现浅线贴白底几乎不可见；改为深底 + 浅灰线。
+ */
+html[data-theme="dark"] .fd-mphone-nav__hamburger {
+    background: rgba(30, 41, 59, 0.94);
+    border: 1px solid rgba(71, 85, 105, 0.72);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .fd-mphone-nav__hamburger span {
+    background: #e2e8f0;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html[data-theme="dark"] .fd-pc-layout__sidebar {
+        background: #1e293b;
+    }
+
+    html[data-theme="dark"] .fd-header {
+        background: #1e293b;
+    }
+
+    html[data-theme="dark"] .fd-mphone-nav__hamburger {
+        background: #1e293b;
+        border: 1px solid var(--color-border);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+}

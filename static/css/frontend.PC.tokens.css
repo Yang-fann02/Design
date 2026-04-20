@@ -1,41 +1,91 @@
+/* frontend.PC.tokens.css — 明亮主题设计令牌（颜色、圆角、阴影、玻璃变量）、全局 reset、html/body 底色。
+   暗色时大量变量在 frontend.PC.theme.css 的 html[data-theme="dark"] 中覆盖。 */
 /* =========================
    设计令牌与基础重置
 ========================= */
-/* 定义全局作用域 */
+/* :root 上声明全站 CSS 变量，任意子表可用 var(--*) 引用 */
 :root {
-    /* 定义全局变量 */
+    /* ---- 布局与形状 ---- */
+    /* 桌面侧栏默认宽度；JS 拖拽改宽时仍以此为初始参考 */
     --sidebar-width: 240px;
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
+    /* 窄屏侧栏与屏幕四边的留白（抽屉不贴边） */
+    --sidebar-inset: 14px;
+    /* 桌面侧栏外轮廓圆角：0 表示与主区垂直接缝；内层菜单项单独用 --radius-md */
+    --sidebar-radius: 0;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 26px;
 
-    --color-bg: #f0f2f5;
+    /* ---- 明亮主题色板 ---- */
+    --color-bg: #c4d4ea;
     --color-surface: #ffffff;
-    --color-text-primary: #1f2937;
-    --color-text-secondary: #6b7280;
-    --color-text-muted: #9ca3af;
-    --color-border: #e5e7eb;
-    --color-border-light: #f3f4f6;
-    --color-primary: #3b82f6;
-    --color-primary-hover: #2563eb;
-    --color-teal: #0d9488;
-    --color-overlay: rgba(0, 0, 0, 0.5);
+    --color-text-primary: #1e293b;
+    --color-text-secondary: #64748b;
+    --color-text-muted: #94a3b8;
+    --color-border: #c0cce5;
+    --color-border-light: #e8ecf6;
+    --color-primary: #6f76d8;
+    --color-primary-hover: #5f66c4;
+    --color-teal: #14b8a6;
+    --color-accent-coral: #fb7185;
+    --color-accent-amber: #f59e0b;
+    /* 遮罩、弹层背后压暗用 */
+    --color-overlay: rgba(30, 27, 75, 0.52);
 
-    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
-    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    /* ---- 阴影：RGB 分量给 rgba(var(--shadow-ink), a) 复用 ---- */
+    --shadow-ink: 49, 46, 130;
+    --shadow-card: 0 1px 3px rgba(var(--shadow-ink), 0.08);
+    --shadow-card-hover: 0 12px 36px rgba(var(--shadow-ink), 0.12);
+    --shadow-modal: 0 28px 64px -12px rgba(var(--shadow-ink), 0.3);
+
+    /* ---- 玻璃拟态：blur / saturate 与半透明面，供 backdrop-filter + 背景叠用 ---- */
+    --glass-blur-strong: 80px;
+    --glass-blur-md: 48px;
+    --glass-blur-soft: 32px;
+    --glass-saturate: 2.1;
+    --glass-sidebar-top: rgba(67, 63, 118, 0.38);
+    --glass-sidebar-bottom: rgba(88, 75, 130, 0.34);
+    --glass-surface: rgba(255, 255, 255, 0.46);
+    --glass-card: rgba(255, 255, 255, 0.4);
+    --glass-modal: rgba(255, 255, 255, 0.48);
+    --glass-edge-light: rgba(255, 255, 255, 0.88);
+    --glass-edge-faint: rgba(255, 255, 255, 0.14);
+    --glass-table-header: rgba(228, 234, 250, 0.62);
+    --glass-table-row-hover: rgba(210, 220, 244, 0.48);
 }
 
+/* 统一盒模型，避免 padding 撑破宽度 */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* 定义全局样式 */
+/* 侧栏菜单内联 SVG：限定尺寸，防止样式加载前 SVG 默认过大撑布局 */
+.fd-pc-sidebar__item svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+/* 页面根：略深于 body，滚动到底时边缘不露白 */
+html {
+    background-color: #e4eaf2;
+    background-image: none;
+    min-height: 100%;
+}
+
 body {
     font-family: Arial, sans-serif;
-    background-color: var(--color-bg);
+    /* 100dvh：移动端减去地址栏后的可视高度，避免 100vh 跳动 */
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: #f1f5f9;
+    background-image: none;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    /* 勿在 body 上使用 backdrop-filter：会为 position:fixed 建立包含块，导致弹窗无法相对视口居中 */
     overflow-x: hidden;
 }

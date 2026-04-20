@@ -1,28 +1,95 @@
+/* frontend.PC.modal.css — 日期筛选弹窗：全屏 flex 遮罩、居中玻璃面板、头/体/脚、年月网格、原生 select 美化、日历格与提示条。 */
 /* =========================
-   日期筛选弹窗
+   日期筛选弹窗（遮罩弱模糊 + 面板液态玻璃）
 ========================= */
+/* 遮罩：fixed 铺满视口，flex 使 .fd-modal 垂直水平居中；默认隐藏，.show 显示 */
 .fd-modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    display: none;
+    display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-overlay);
+    box-sizing: border-box;
+    /* 安全区内边距：刘海屏避免贴边 */
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+        max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* 略浅遮罩 + 较低模糊，背后页面仍可辨认 */
+    background: rgba(30, 27, 75, 0.34);
+    -webkit-backdrop-filter: blur(12px) saturate(1.35);
+    backdrop-filter: blur(12px) saturate(1.35);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
 }
 
 .fd-modal-overlay.show {
-    display: flex;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
+/* 取消按钮路径：JS 加 --no-transition，避免关闭时遮罩渐隐卡顿 */
+.fd-modal-overlay.fd-modal-overlay--no-transition,
+.fd-modal-overlay.fd-modal-overlay--no-transition .fd-modal {
+    transition: none !important;
+}
+
+/* 弹窗卡片：max-width 限制桌面宽度；max-height 防止超出视口；初始略缩小透明，.show 内与遮罩同步放大 */
 .fd-modal {
+    position: relative;
+    overflow: auto;
+    isolation: isolate;
     width: 100%;
     max-width: 480px;
-    background: var(--color-surface);
+    max-height: min(90dvh, calc(100vh - 32px));
+    margin-block: auto;
+    align-self: center;
+    flex-shrink: 0;
+    transform: translateZ(0) scale(0.96);
+    background: rgba(252, 253, 255, 0.82);
+    -webkit-backdrop-filter: blur(20px) saturate(1.55) brightness(1.02);
+    backdrop-filter: blur(20px) saturate(1.55) brightness(1.02);
+    border: 1px solid rgba(255, 255, 255, 0.88);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-modal);
+    box-shadow:
+        var(--shadow-modal),
+        0 24px 64px rgba(var(--shadow-ink), 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    opacity: 0;
+    transition: transform 0.4s ease, opacity 0.4s ease;
 }
 
+/* 顶部柔光渐变：叠在面板底层，增强玻璃层次（pointer-events:none 不挡点击） */
+.fd-modal::before {
+    display: block;
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(175deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.12) 38%, transparent 58%);
+    opacity: 0.85;
+}
+
+.fd-modal__header,
+.fd-modal__body,
+.fd-modal__footer {
+    position: relative;
+    z-index: 1;
+}
+
+.fd-modal-overlay.show .fd-modal {
+    transform: translateZ(0) scale(1);
+    opacity: 1;
+}
+
+/* 头：标题 + 关闭 X */
 .fd-modal__header {
     display: flex;
     justify-content: space-between;
@@ -32,7 +99,7 @@
 }
 
 .fd-modal__header h3 {
-    color: #111827;
+    color: var(--color-text-primary);
     font-size: 18px;
     font-weight: 600;
 }
@@ -56,77 +123,176 @@
     padding: 24px;
 }
 
+/* 日期筛选专用：纵向分区 + 统一间距 */
+.fd-modal__body.fd-date-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 20px 22px 22px;
+}
+
+/* 脚：右对齐取消/确定 */
 .fd-modal__footer {
     display: flex;
     justify-content: flex-end;
     gap: 12px;
-    padding: 16px 24px;
+    padding: 14px 22px 18px;
     border-top: 1px solid var(--color-border);
+}
+
+/* 「年份与月份」「选择日期」两块白底分区 */
+.fd-date-filter__section {
+    margin: 0;
+    padding: 16px 16px 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+
+.fd-date-filter__section-title {
+    margin: 0 0 14px;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
+}
+
+.fd-date-filter__section--calendar {
+    padding-bottom: 14px;
 }
 
 .fd-filter__row {
     display: flex;
     gap: 16px;
-    margin-bottom: 20px;
+}
+
+/* 年、月两列等分，防止长文案挤破 */
+.fd-filter__row--ym {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
 }
 
 .fd-filter__col {
     flex: 1;
+    min-width: 0;
+}
+
+.fd-filter__row--ym .fd-filter__col {
+    flex: unset;
 }
 
 .fd-form-label {
     display: block;
     margin-bottom: 8px;
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
     font-size: 14px;
+    font-weight: 600;
 }
 
+/* 原生 select：去掉默认箭头，用右侧内嵌 SVG 统一外观；右侧留白给箭头 */
 .fd-form-select {
     width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
+    min-height: 42px;
+    padding: 10px 14px;
+    padding-right: 2.75rem;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     font-size: 14px;
+    color: var(--color-text-primary);
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    appearance: none;
+    -webkit-appearance: none;
 }
 
+.fd-form-select::-ms-expand {
+    display: none;
+}
+
+.fd-form-select:disabled {
+    color: var(--color-text-secondary);
+    background-color: #f1f5f9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* 日历标题行：左标题 + 右说明（如「各年份 x 月」） */
 .fd-filter__grid-header {
     display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     justify-content: space-between;
+    gap: 8px 12px;
     margin-bottom: 12px;
+    padding: 0 2px;
 }
 
 .fd-filter__grid-title {
-    color: var(--color-text-secondary);
-    font-size: 14px;
+    color: var(--color-text-primary);
+    font-size: 15px;
+    font-weight: 700;
 }
 
 .fd-filter__caption {
-    color: var(--color-text-muted);
-    font-size: 14px;
+    margin-left: auto;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
 }
 
+/* 7 列日历：周一到周日 + 日按钮；由 JS 插入星期头与按钮 */
 .fd-filter__day-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px 8px;
+    padding: 10px 8px 12px;
+    margin: 0;
+    background: #ffffff;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    justify-items: center;
+}
+
+/* 未选年月时网格为空：隐藏容器，避免出现大块空白像输入框 */
+.fd-filter__day-grid:empty {
+    display: none;
+    padding: 0;
+    border: none;
+    background: transparent;
+    min-height: 0;
 }
 
 .fd-filter__weekday {
-    color: var(--color-text-muted);
-    font-size: 12px;
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    font-weight: 700;
     text-align: center;
+    text-transform: none;
+    width: 100%;
 }
 
 .fd-filter__day-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.75rem;
+    width: 100%;
+    max-width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-md);
     user-select: none;
+    font-size: 13px;
+    font-weight: 600;
 }
 
+/* 无该日数据：灰字灰底不可点（仍渲染占位保持格子对齐） */
 .fd-filter__day-btn.is-disabled {
     color: var(--color-text-muted);
     background: var(--color-border-light);
@@ -134,14 +300,14 @@
 }
 
 .fd-filter__day-btn.is-enabled {
-    color: #111827;
-    background: #f8fafc;
+    color: var(--color-text-primary);
+    background: var(--color-border-light);
     border: 1px solid var(--color-border);
 }
 
 .fd-filter__day-btn.is-enabled:hover {
     border-color: var(--color-teal);
-    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.22);
 }
 
 .fd-filter__day-btn.is-selected {
@@ -150,8 +316,54 @@
     border-color: var(--color-teal);
 }
 
+/* 底部操作提示：左边框强调色条 */
+.fd-filter__tip-wrap {
+    margin: 0;
+    padding: 12px 14px;
+    background: rgba(241, 245, 249, 0.95);
+    border: 1px solid var(--color-border-light);
+    border-left: 3px solid var(--color-teal);
+    border-radius: var(--radius-md);
+}
+
 .fd-filter__tip {
-    margin-top: 16px;
-    color: var(--color-text-muted);
+    margin: 0;
+    color: var(--color-text-primary);
     font-size: 13px;
+    line-height: 1.55;
+    font-weight: 500;
+    opacity: 0.88;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fd-modal-overlay {
+        background: var(--color-overlay);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    .fd-modal {
+        transform: scale(0.96);
+        background: var(--color-surface);
+        border: none;
+        box-shadow: var(--shadow-modal);
+        isolation: auto;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+    }
+
+    .fd-modal::before {
+        display: none;
+    }
+
+    .fd-modal__header,
+    .fd-modal__body,
+    .fd-modal__footer {
+        position: static;
+        z-index: auto;
+    }
+
+    .fd-modal-overlay.show .fd-modal {
+        transform: scale(1);
+    }
 }

@@ -1,0 +1,4 @@
+# Python 字节码与缓存目录（勿提交）
+__pycache__/
+*.py[cod]
+*$py.class

@@ -1,57 +1,96 @@
 <!DOCTYPE html>
+<!-- 单页应用：学生消费统计与可视化；后端 API 见 backend.py；样式入口 /static/css/frontend.PC-Mphone.css -->
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- 移动端视口：禁止默认缩放过小，保证侧栏抽屉与触摸目标尺寸 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学生消费统计及可视化平台</title>
+    <!-- 首屏前执行：若有记忆主题则先加 data-theme，避免 body 绘制后再闪变 -->
+    <script>try { if (localStorage.getItem('fd-theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); } catch (e) {}</script>
+    <!-- ECharts：饼图、折线图、dataZoom；需先于内联脚本加载完成 -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <link rel="icon" href="/static/icons/money-bag.png" type="image/png">
-    <link rel="stylesheet" href="/static/css/frontend.PC-Mphone.css">
+    <!-- 样式唯一入口；子表通过 @import 链入，改 CSS 后提高 ?v= 可强刷缓存 -->
+    <link rel="stylesheet" href="/static/css/frontend.PC-Mphone.css?v=19">
 </head>
 <body class="fd-page">
+    <!-- ========== 窄屏导航：汉堡 + 全屏遮罩（桌面端 CSS 隐藏汉堡；抽屉打开时显示遮罩并给侧栏 .active） ========== -->
+    <!-- 三线图标按钮：fixed 左上角，点击由脚本切换 .active 与侧栏 .active，三条 span 旋转成 X -->
     <div class="fd-mphone-nav__hamburger" id="mphone-hamburger">
         <span></span>
         <span></span>
         <span></span>
     </div>
+    <!-- 半透明遮罩：盖在主内容之上、侧栏之下，点击同汉堡逻辑收起抽屉 -->
     <div class="fd-mphone-nav__overlay" id="mphone-sidebar-overlay"></div>
 
+    <!-- ========== 左侧边栏（桌面：fixed 全高贴左；窄屏时变为抽屉，见 frontend.Mphone.responsive.css） ========== -->
     <div class="fd-pc-layout__sidebar">
+        <!-- 品牌区：固定高度，底部分割线与下方菜单区分；标题文案与浏览器页签 title 呼应 -->
         <div class="fd-pc-sidebar__logo">
             <h1>学生消费统计及可视化平台</h1>
         </div>
+        <!-- 主导航列表：flex 占位撑满侧栏剩余高度，每项对应下方主区内一个 .fd-view（通过 data-page 与 id="view-{page}" 绑定） -->
         <div class="fd-pc-sidebar__menu">
+            <!-- 首页概览：默认 .active；脚本根据 data-page 显示 #view-overview，并同步 #page-title 文案 -->
             <div class="fd-pc-sidebar__item active" data-page="overview">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                 <span>首页概览</span>
             </div>
+            <!-- 数据统计：仅图表双卡片，表格在概览/明细页；仍拉同一套 /api/statistics 数据 -->
             <div class="fd-pc-sidebar__item" data-page="statistics">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 <span>数据统计</span>
             </div>
+            <!-- 消费明细：单独大表 #pc-expense-table2，与概览页表格数据相同，便于只看病明细 -->
             <div class="fd-pc-sidebar__item" data-page="details">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span>消费明细</span>
             </div>
         </div>
+        <!-- 侧栏右缘 4px 拖拽热区：桌面 JS 监听 mousedown/mousemove 动态改侧栏宽度与主区 margin-left（窄屏不启用） -->
         <div class="fd-pc-sidebar__resize"></div>
     </div>
 
+    <!-- ========== 主内容区：左边距为侧栏宽度（窄屏 margin-left:0）；内含顶栏 + 可滚动内容 ========== -->
     <div class="fd-pc-layout__main">
-        <div class="fd-header">
-            <h2 id="page-title">数据概览</h2>
-            <div class="fd-header__actions">
+        <!-- 顶栏：第一行为当前页标题 + 主题/日期工具条；第二行为筛选状态与清除按钮（由脚本显隐） -->
+        <header class="fd-header">
+            <div class="fd-header__row">
+                <!-- 与侧栏选中项联动，脚本写入「数据概览 / 数据统计 / 消费明细」 -->
+                <h2 id="page-title" class="fd-header__title">数据概览</h2>
+                <div class="fd-header__toolbar" aria-label="主题与日期筛选">
+                    <!-- 明暗主题开关：点击后脚本切换 html[data-theme="dark"] 与本地存储，并重绘 ECharts -->
+                    <button type="button" id="pc-theme-toggle" class="fd-theme-toggle" role="switch" aria-checked="false" aria-label="切换明亮或暗色主题" title="明亮 / 暗色">
+                        <span class="fd-theme-toggle__track" aria-hidden="true"></span>
+                        <span class="fd-theme-toggle__icon fd-theme-toggle__icon--sun" aria-hidden="true">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        </span>
+                        <span class="fd-theme-toggle__icon fd-theme-toggle__icon--moon" aria-hidden="true">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                        </span>
+                        <span class="fd-theme-toggle__thumb" aria-hidden="true"></span>
+                    </button>
+                    <!-- 打开日期筛选弹层 #pc-date-modal -->
+                    <button type="button" id="pc-btn-date" class="fd-btn fd-btn--primary">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        日期筛选
+                    </button>
+                </div>
+            </div>
+            <!-- 有日期筛选时脚本去掉 .fd-hidden，展示当前筛选摘要与一键清除 -->
+            <div class="fd-header__filters">
                 <span id="pc-date-hint" class="fd-date-hint fd-hidden">已筛选：--</span>
                 <button type="button" id="pc-btn-date-clear" class="fd-btn fd-btn--outline fd-hidden">清除筛选</button>
-                <button type="button" id="pc-btn-date" class="fd-btn fd-btn--primary">
-                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    日期筛选
-                </button>
             </div>
-        </div>
+        </header>
 
+        <!-- ========== 主内容滚动区：内含三个互斥视图，仅带 .fd-view.active 的块显示 ========== -->
         <div class="fd-pc-layout__content">
+            <!-- —— 视图一：首页概览（指标卡 + 饼/折线图 + 明细表上半副本） —— -->
             <div class="fd-view active" id="view-overview">
+                <!-- 四张指标卡：数值由 pcRenderUI 写入 id；配色由 fd-stats__card--* 修饰类区分 -->
                 <div class="fd-stats">
                     <div class="fd-stats__card fd-stats__card--blue">
                         <div class="fd-stats__label">总消费金额</div>
@@ -72,6 +111,7 @@
                 </div>
 
                 <h2 class="fd-section-title">消费类别占比</h2>
+                <!-- 双列图表：桌面并排，窄屏纵向堆叠；容器 id 供 echarts.init -->
                 <div class="fd-charts">
                     <div class="fd-card">
                         <div class="fd-card__header"><h3>消费类别占比</h3></div>
@@ -86,7 +126,8 @@
                 <h2 class="fd-section-title">消费明细</h2>
                 <div class="fd-card">
                     <div class="fd-card__header"><h3>消费明细表</h3></div>
-                    <div class="fd-table">
+                    <!-- 表头/表体由脚本根据 /api/statistics 的 raw_table 动态填充；与明细页表格数据一致 -->
+                    <div class="fd-table fd-table--body-cap">
                         <table>
                             <thead><tr id="pc-expense-thead"></tr></thead>
                             <tbody id="pc-expense-table"></tbody>
@@ -95,6 +136,7 @@
                 </div>
             </div>
 
+            <!-- —— 视图二：数据统计（仅双图表，便于大屏专注看图；图表 id 带 2 后缀与概览区分） —— -->
             <div class="fd-view" id="view-statistics">
                 <h2 class="fd-section-title">数据统计</h2>
                 <div class="fd-charts">
@@ -109,11 +151,12 @@
                 </div>
             </div>
 
+            <!-- —— 视图三：消费明细（仅表格，表头/表体 id 带 2，与概览表结构相同便于同一套渲染函数） —— -->
             <div class="fd-view" id="view-details">
                 <h2 class="fd-section-title">消费明细</h2>
                 <div class="fd-card">
                     <div class="fd-card__header"><h3>消费明细表</h3></div>
-                    <div class="fd-table">
+                    <div class="fd-table fd-table--body-cap">
                         <table>
                             <thead><tr id="pc-expense-thead2"></tr></thead>
                             <tbody id="pc-expense-table2"></tbody>
@@ -124,38 +167,49 @@
         </div>
     </div>
 
+    <!-- ========== 日期筛选弹窗：默认无 .show；脚本打开时加 .show，取消可加 fd-modal-overlay--no-transition 跳动画 ========== -->
     <div id="pc-date-modal" class="fd-modal-overlay">
         <div class="fd-modal">
             <div class="fd-modal__header">
                 <h3>选择日期范围</h3>
+                <!-- 右上角关闭：与底部取消共用 pcCloseDateModal(true) -->
                 <div class="fd-modal__close" id="pc-btn-date-cancel">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </div>
             </div>
-            <div class="fd-modal__body">
-                <div class="fd-filter__row">
-                    <div class="fd-filter__col">
-                        <label class="fd-form-label">年份</label>
-                        <select id="pc-year-select" class="fd-form-select">
-                            <option value="">-- 年 --</option>
-                        </select>
+            <!-- 弹窗主体：年月下拉由 /api/date_index 填充；日历格 #pc-day-grid 由脚本生成 -->
+            <div class="fd-modal__body fd-date-filter">
+                <section class="fd-date-filter__section" aria-label="年份与月份">
+                    <h4 class="fd-date-filter__section-title">年份与月份</h4>
+                    <div class="fd-filter__row fd-filter__row--ym">
+                        <div class="fd-filter__col">
+                            <label class="fd-form-label" for="pc-year-select">年份</label>
+                            <select id="pc-year-select" class="fd-form-select">
+                                <option value="">-- 年 --</option>
+                            </select>
+                        </div>
+                        <div class="fd-filter__col">
+                            <label class="fd-form-label" for="pc-month-select">月份</label>
+                            <select id="pc-month-select" class="fd-form-select">
+                                <option value="">-- 月 --</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="fd-filter__col">
-                        <label class="fd-form-label">月份</label>
-                        <select id="pc-month-select" class="fd-form-select" disabled>
-                            <option value="">-- 月 --</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
+                </section>
+                <!-- 日历区：星期标题与日按钮由 JS 插入；未选月份时 :empty 隐藏整块避免空白框 -->
+                <section class="fd-date-filter__section fd-date-filter__section--calendar" aria-label="日历选择">
                     <div class="fd-filter__grid-header">
                         <span class="fd-filter__grid-title">选择日期</span>
+                        <!-- 说明当前网格含义，如「各年份 m 月」或「YYYY-MM（x 天有数据）」 -->
                         <span id="pc-day-caption" class="fd-filter__caption"></span>
                     </div>
                     <div id="pc-day-grid" class="fd-filter__day-grid"></div>
+                </section>
+                <div class="fd-filter__tip-wrap">
+                    <p class="fd-filter__tip">提示：可只选年、只选月、或年+月（不点日期时点「确定」即整年或该年整月）；可不选年只选月（各年该月），选月后再点日为「各年该月同日」。选了年后月份与网格仅针对该年。</p>
                 </div>
-                <p class="fd-filter__tip">提示：选择年份可按年筛选，选择月份可按月筛选，选择日期可按日筛选</p>
             </div>
+            <!-- 确定：把弹窗内临时选择写入 pcActiveFilter 并请求统计；取消：不提交仅关闭 -->
             <div class="fd-modal__footer">
                 <button type="button" id="pc-btn-date-cancel2" class="fd-btn fd-btn--outline">取消</button>
                 <button type="button" id="pc-btn-date-confirm" class="fd-btn fd-btn--primary">确定</button>
@@ -164,14 +218,32 @@
     </div>
 
     <script>
-        // 设置全局变量
-        let pcCategoryChart, pcTrendChart, pcCategoryChart2, pcTrendChart2;
-        let pcActiveFilter = { year: null, month: null, day: null };
+        /**
+         * 前端单页脚本：主题、日期筛选、拉取 /api/statistics 与 /api/date_index、
+         * ECharts 图表与消费明细表渲染、侧栏导航与拖拽宽度（桌面）、窄屏抽屉菜单。
+         */
+        /** @type {echarts.ECharts | undefined} 首页「消费类别占比」 */
+        let pcCategoryChart;
+        /** @type {echarts.ECharts | undefined} 首页「每日消费趋势」 */
+        let pcTrendChart;
+        /** @type {echarts.ECharts | undefined} 数据统计页的饼图（与首页共用同一套 option） */
+        let pcCategoryChart2;
+        /** @type {echarts.ECharts | undefined} 数据统计页的折线图 */
+        let pcTrendChart2;
+        /** 当前生效的日期筛选（确定后写入，驱动 API 查询） */
+        let pcActiveFilter = { year: null, month: null, day: null, dayOfMonth: null };
+        /** 来自 /api/date_index 的 date_index，无数据时为 null */
         let pcDateIndex = null;
+        /** 最近一次统计接口返回的完整对象，用于切换主题时重绘图表不重拉接口 */
+        let pcLastStatsData = null;
+        /** localStorage 中保存明暗主题的键名 */
+        const PC_THEME_KEY = 'fd-theme';
 
+        /** 将 1–9 转为两位字符串，用于拼 YYYY-MM-DD */
         function pcPad2(n) { return String(n).padStart(2, '0'); }
+        /** 返回指定公历年月的总天数（用于月末 end_date） */
         function pcDaysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
-        // 图表初始化与渲染
+        /** 懒创建四个 ECharts 实例（对应概览页与数据统计页各两个容器） */
         function pcInitCharts() {
             if (!pcCategoryChart) pcCategoryChart = echarts.init(document.getElementById('pc-category-chart'));
             if (!pcTrendChart) pcTrendChart = echarts.init(document.getElementById('pc-trend-chart'));
@@ -179,56 +251,191 @@
             if (!pcTrendChart2) pcTrendChart2 = echarts.init(document.getElementById('pc-trend-chart2'));
         }
 
+        /**
+         * 根据统计接口数据更新顶栏数字、日期范围文案、四个图表、两张明细表，并把滚动条复位。
+         * @param {object} data - /api/statistics 返回的 JSON
+         */
         function pcRenderUI(data) {
-             // 更新统计卡片数值
+            pcLastStatsData = data;
             document.getElementById('pc-total-expense').textContent = `¥${Number(data.total_expense || 0).toFixed(0)}`;
             document.getElementById('pc-daily-average').textContent = `¥${Number(data.daily_average || 0).toFixed(0)}`;
             document.getElementById('pc-record-count').textContent = (data.raw_table || []).length;
             const dr = data.date_range || {};
             document.getElementById('pc-date-range-display').textContent = (dr.min && dr.max) ? `${dr.min} ~ ${dr.max}` : '--';
-            // 确保图表实例存在
             pcInitCharts();
-            // 准备饼图数据
             const categoryData = Object.entries(data.category_expense || {}).map(([name, value]) => ({ name, value }));
-            // 准备折线图数据（按日期排序）
             const trendDates = Object.keys(data.daily_trend || {}).sort();
             const trendValues = trendDates.map(d => data.daily_trend[d]);
-            // 饼图配置
+            // 图表字体、明暗色板、饼图扇区取色函数（pcPieSliceColor）、饼/折 option，四套实例共用
+            const pcChartFont = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+            const pcIsDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const pcChart = pcIsDark ? {
+                text: '#e8edf4',
+                textMuted: '#94a3b8',
+                lineMuted: '#64748b',
+                grid: 'rgba(71, 85, 105, 0.45)',
+                daily: '#8b93eb',
+                medical: '#fb7185',
+                entertainment: '#fbbf24',
+                game: '#2dd4bf',
+                trend: '#60a5fa',
+                trendFill0: 'rgba(96, 165, 250, 0.32)',
+                trendFill1: 'rgba(96, 165, 250, 0.05)',
+                zoomTrack: 'rgba(51, 65, 85, 0.65)',
+                zoomFill: 'rgba(139, 147, 235, 0.35)',
+                empty: '#475569',
+                pieBorder: 'rgba(15, 23, 42, 0.75)',
+                symbolFill: '#1e293b',
+                axisLine: '#475569',
+                handleBorder: '#64748b',
+                handleShadow: 'rgba(0, 0, 0, 0.25)'
+            } : {
+                text: '#1e293b',
+                textMuted: '#64748b',
+                lineMuted: '#94a3b8',
+                grid: '#e8ecf6',
+                daily: '#6f76d8',
+                medical: '#f43f5e',
+                entertainment: '#f59e0b',
+                game: '#14b8a6',
+                trend: '#3b82f6',
+                trendFill0: 'rgba(59, 130, 246, 0.26)',
+                trendFill1: 'rgba(59, 130, 246, 0.04)',
+                zoomTrack: '#e8ecf6',
+                zoomFill: 'rgba(111, 118, 216, 0.28)',
+                empty: '#cbd5e1',
+                pieBorder: 'rgba(255, 255, 255, 0.9)',
+                symbolFill: '#FFFFFF',
+                axisLine: '#c0cce5',
+                handleBorder: '#c0cce5',
+                handleShadow: 'rgba(49, 46, 130, 0.1)'
+            };
+            const pcPieByName = {
+                日常消费: pcChart.daily,
+                医疗支出: pcChart.medical,
+                娱乐消费: pcChart.entertainment,
+                游戏充值: pcChart.game
+            };
+            /** ECharts 饼图 itemStyle.color 回调：按系列项名称取色 */
+            function pcPieSliceColor(params) {
+                const name = String(params.name || (params.data && params.data.name) || '');
+                if (name.includes('暂无')) return pcChart.empty;
+                if (pcPieByName[name]) return pcPieByName[name];
+                if (name.includes('日常')) return pcChart.daily;
+                if (name.includes('医疗')) return pcChart.medical;
+                if (name.includes('娱乐')) return pcChart.entertainment;
+                if (name.includes('游戏')) return pcChart.game;
+                return [pcChart.daily, pcChart.medical, pcChart.entertainment, pcChart.game, '#8b5cf6', '#38bdf8'][params.dataIndex % 6];
+            }
+            const pcTipBg = pcIsDark ? 'rgba(30, 41, 59, 0.92)' : 'rgba(255, 255, 255, 0.94)';
+            const pcTipBorder = pcIsDark ? 'rgba(71, 85, 105, 0.6)' : 'rgba(192, 204, 229, 0.9)';
             const chartOption = {
-                tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: ¥{c} ({d}%)' },
-                legend: { orient: 'vertical', left: 'left', textStyle: { color: '#333' } },
+                textStyle: { fontFamily: pcChartFont, color: pcChart.text },
+                tooltip: {
+                    trigger: 'item',
+                    formatter: '{a} <br/>{b}: ¥{c} ({d}%)',
+                    backgroundColor: pcTipBg,
+                    borderColor: pcTipBorder,
+                    textStyle: { color: pcChart.text, fontFamily: pcChartFont }
+                },
+                legend: { orient: 'vertical', left: 'left', textStyle: { color: pcChart.textMuted, fontFamily: pcChartFont } },
                 series: [{
                     name: '消费类别', type: 'pie', radius: ['45%', '70%'], center: ['50%', '50%'],
                     data: categoryData.length ? categoryData : [{ name: '暂无数据', value: 0 }],
-                    emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0,0,0,0.5)' } },
-                    itemStyle: { color: (params) => ['#3b82f6', '#10b981', '#8b5cf6', '#0d9488', '#f59e0b', '#ef4444'][params.dataIndex % 6] }
+                    label: { color: pcChart.text, fontFamily: pcChartFont, fontWeight: 500 },
+                    labelLine: { lineStyle: { color: pcChart.lineMuted, width: 1 } },
+                    emphasis: {
+                        itemStyle: {
+                            shadowBlur: 20,
+                            shadowOffsetY: 4,
+                            shadowColor: 'rgba(49, 46, 130, 0.14)'
+                        }
+                    },
+                    itemStyle: {
+                        color: (params) => pcPieSliceColor(params),
+                        borderRadius: 5,
+                        borderColor: pcChart.pieBorder,
+                        borderWidth: 2
+                    }
                 }]
             };
-            // 折线图配置
             const trendOption = {
-                tooltip: { trigger: 'axis', formatter: params => params[0] ? `${params[0].name}<br/>消费金额: ¥${Number(params[0].value).toFixed(0)}` : '' },
-                // 留出空间给数据缩放滑块
+                textStyle: { fontFamily: pcChartFont, color: pcChart.text },
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: params => params[0] ? `${params[0].name}<br/>消费金额: ¥${Number(params[0].value).toFixed(0)}` : '',
+                    backgroundColor: pcTipBg,
+                    borderColor: pcTipBorder,
+                    textStyle: { color: pcChart.text, fontFamily: pcChartFont }
+                },
                 grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-                // 底部滑动条
-                dataZoom: [{ type: 'slider', show: true, xAxisIndex: [0], start: 0, end: 100, bottom: 8 }, 
-                // 内置缩放（鼠标滚轮）
-                { type: 'inside', xAxisIndex: [0], start: 0, end: 100 }],
-                // 日期标签旋转45度
-                xAxis: { type: 'category', boundaryGap: false, data: trendDates, axisLabel: { rotate: 45 } },
-                yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+                dataZoom: [
+                    {
+                        type: 'slider',
+                        show: true,
+                        xAxisIndex: [0],
+                        start: 0,
+                        end: 100,
+                        bottom: 8,
+                        height: 22,
+                        borderRadius: 11,
+                        borderColor: 'transparent',
+                        backgroundColor: pcChart.zoomTrack,
+                        fillerColor: pcChart.zoomFill,
+                        handleSize: '80%',
+                        handleStyle: {
+                            color: pcIsDark ? '#334155' : '#FFFFFF',
+                            borderColor: pcChart.handleBorder,
+                            borderWidth: 0.5,
+                            shadowBlur: 4,
+                            shadowColor: pcChart.handleShadow
+                        },
+                        moveHandleStyle: { color: '#cbd5e1' },
+                        textStyle: { color: pcChart.textMuted, fontSize: 11, fontFamily: pcChartFont }
+                    },
+                    { type: 'inside', xAxisIndex: [0], start: 0, end: 100 }
+                ],
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: trendDates,
+                    axisLine: { lineStyle: { color: pcChart.axisLine } },
+                    axisTick: { show: false },
+                    axisLabel: { rotate: 45, color: pcChart.textMuted, fontFamily: pcChartFont }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLine: { show: false },
+                    axisTick: { show: false },
+                    axisLabel: { formatter: '¥{value}', color: pcChart.textMuted, fontFamily: pcChartFont },
+                    splitLine: { lineStyle: { color: pcChart.grid, width: 1 } }
+                },
                 series: [{
-                    name: '消费金额', type: 'line', data: trendValues, smooth: true,// 平滑曲线
-                    areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(59, 130, 246, 0.5)' }, { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }]) },
-                    // 渐变填充区域
-                    lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }
+                    name: '消费金额',
+                    type: 'line',
+                    data: trendValues,
+                    smooth: true,
+                    showSymbol: 'auto',
+                    symbolSize: 6,
+                    lineStyle: { color: pcChart.trend, width: 2.5, cap: 'round', join: 'round' },
+                    itemStyle: {
+                        color: pcChart.symbolFill,
+                        borderColor: pcChart.trend,
+                        borderWidth: 2
+                    },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                            { offset: 0, color: pcChart.trendFill0 },
+                            { offset: 1, color: pcChart.trendFill1 }
+                        ])
+                    }
                 }]
             };
-             // 应用配置到所有图表实例
             pcCategoryChart.setOption(chartOption, true);
             pcTrendChart.setOption(trendOption, true);
             pcCategoryChart2.setOption(chartOption, true);
             pcTrendChart2.setOption(trendOption, true);
-            // 动态生成表格行
+            /** 将一行 raw_table 转为表格 <tr>（三列：日期、类别、金额） */
             const makeRow = (row) => {
                 const tr = document.createElement('tr');
                 ['日期', '类别', '金额'].forEach(key => {
@@ -240,7 +447,6 @@
                 });
                 return tr;
             };
-            // 构建表头
             const thead = document.getElementById('pc-expense-thead');
             thead.innerHTML = '';
             ['日期', '类别', '金额'].forEach(label => {
@@ -248,9 +454,7 @@
                 th.textContent = label;
                 thead.appendChild(th);
             });
-            // 同步明细页表头
             document.getElementById('pc-expense-thead2').innerHTML = thead.innerHTML;
-            // 填充表格数据（两个表格共用同一份数据）
             const tableBody = document.getElementById('pc-expense-table');
             tableBody.innerHTML = '';
             const tableBody2 = document.getElementById('pc-expense-table2');
@@ -259,29 +463,87 @@
                 tableBody.appendChild(makeRow(row));
                 tableBody2.appendChild(makeRow(row));
             });
+            document.querySelectorAll('.fd-table--body-cap').forEach((el) => { el.scrollTop = 0; });
         }
-        // 日期筛选相关函数
-        function pcBuildRangeFromFilter() {
-            if (!pcActiveFilter.year) return null;
-            const y = Number(pcActiveFilter.year);
-            if (pcActiveFilter.day) return { start: pcActiveFilter.day, end: pcActiveFilter.day, label: pcActiveFilter.day };
-            if (pcActiveFilter.month) {
-                const m = Number(pcActiveFilter.month);
-                return { start: `${y}-${pcPad2(m)}-01`, end: `${y}-${pcPad2(m)}-${pcPad2(pcDaysInMonth(y, m))}`, label: `${y}-${pcPad2(m)}` };
+
+        /** 主题切换后：用缓存数据重绘图表（有缓存时）否则重新请求统计 */
+        function pcOnThemeChange() {
+            if (pcLastStatsData) pcRenderUI(pcLastStatsData);
+            else pcLoadStatistics();
+        }
+
+        /**
+         * 应用明亮/暗色主题到 documentElement 与切换按钮的 ARIA/样式类，并写入 localStorage。
+         * @param {'light'|'dark'} mode
+         */
+        function pcApplyDomTheme(mode) {
+            const isDark = mode === 'dark';
+            if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
+            else document.documentElement.removeAttribute('data-theme');
+            try { localStorage.setItem(PC_THEME_KEY, isDark ? 'dark' : 'light'); } catch (_) {}
+            const btn = document.getElementById('pc-theme-toggle');
+            if (btn) {
+                btn.classList.toggle('fd-theme-toggle--dark', isDark);
+                btn.setAttribute('aria-checked', isDark ? 'true' : 'false');
+                btn.setAttribute('aria-label', isDark ? '当前为暗色主题，点击切换为明亮主题' : '当前为明亮主题，点击切换为暗色主题');
             }
-            return { start: `${y}-01-01`, end: `${y}-12-31`, label: String(y) };
         }
-        // 构造 API 请求 URL
+
+        /** @returns {boolean} 当前是否为暗色主题（看 html[data-theme="dark"]） */
+        function pcIsDarkTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark';
+        }
+
+        /** 在明暗之间切换并触发图表配色更新 */
+        function pcToggleTheme() {
+            pcApplyDomTheme(pcIsDarkTheme() ? 'light' : 'dark');
+            pcOnThemeChange();
+        }
+
+        /**
+         * 根据 pcActiveFilter 得到 API 所需参数与顶栏展示用 label。
+         * 无年有月 → only_month（+ 可选 only_dom）；有年 → start/end 单日或整月或整年。
+         * @returns {object|null} only_month 或 { start, end, label }，无筛选返回 null
+         */
+        function pcBuildRangeFromFilter() {
+            const f = pcActiveFilter;
+            const y = f.year != null && Number.isFinite(Number(f.year)) ? Number(f.year) : null;
+            const m = f.month != null && Number.isFinite(Number(f.month)) ? Number(f.month) : null;
+            if (y == null && m != null) {
+                if (f.dayOfMonth != null && Number.isFinite(Number(f.dayOfMonth)))
+                    return { only_month: m, only_dom: Number(f.dayOfMonth), label: `各年${m}月${f.dayOfMonth}日` };
+                return { only_month: m, label: `各年${m}月` };
+            }
+            if (y == null) return null;
+            if (f.day) return { start: f.day, end: f.day, label: f.day };
+            if (m != null) {
+                return {
+                    start: `${y}-${pcPad2(m)}-01`,
+                    end: `${y}-${pcPad2(m)}-${pcPad2(pcDaysInMonth(y, m))}`,
+                    label: `${y}年${m}月`,
+                };
+            }
+            return { start: `${y}-01-01`, end: `${y}-12-31`, label: `${y}年` };
+        }
+
+        /** 拼接当前筛选下的 /api/statistics 完整 URL（含查询串） */
         function pcBuildStatisticsUrl() {
             const range = pcBuildRangeFromFilter();
             if (!range) return '/api/statistics';
+            if (range.only_month != null) {
+                const p = new URLSearchParams({ only_month: String(range.only_month) });
+                if (range.only_dom != null) p.set('only_dom', String(range.only_dom));
+                return '/api/statistics?' + p.toString();
+            }
             return '/api/statistics?' + new URLSearchParams({ start_date: range.start, end_date: range.end });
         }
 
+        /** 请求统计接口并用返回结果刷新界面 */
         function pcLoadStatistics() {
             fetch(pcBuildStatisticsUrl()).then(r => r.json()).then(pcRenderUI).catch(e => console.error('Error:', e));
         }
 
+        /** 请求日期索引并重建年份下拉（失败或无数据时清空索引） */
         function pcLoadDateIndex() {
             fetch('/api/date_index').then(r => r.json()).then(res => {
                 pcDateIndex = res && res.has_data ? res.date_index : null;
@@ -289,6 +551,7 @@
             }).catch(() => { pcDateIndex = null; pcSetupYearOptions(); });
         }
 
+        /** 根据当前筛选显示/隐藏顶栏「已筛选」文案与「清除筛选」按钮 */
         function pcUpdateDateHint() {
             const range = pcBuildRangeFromFilter();
             const hasFilter = !!range;
@@ -296,27 +559,54 @@
             if (hasFilter) document.getElementById('pc-date-hint').textContent = '已筛选：' + range.label;
             document.getElementById('pc-btn-date-clear').classList.toggle('fd-hidden', !hasFilter);
         }
-        // 日期模态框操作
+
         const pcDateModal = document.getElementById('pc-date-modal');
         const pcYearSelect = document.getElementById('pc-year-select');
         const pcMonthSelect = document.getElementById('pc-month-select');
         const pcDayGrid = document.getElementById('pc-day-grid');
         const pcDayCaption = document.getElementById('pc-day-caption');
-        let pcTempSelection = { year: null, month: null, day: null };
+        /** 日期弹窗内临时状态，确定后写入 pcActiveFilter */
+        let pcTempSelection = { year: null, month: null, day: null, dayOfMonth: null };
 
-        function pcOpenDateModal() { pcDateModal.classList.add('show'); pcTempSelection = { ...pcActiveFilter }; pcApplyTempSelectionToUI(); }
-        function pcCloseDateModal() { pcDateModal.classList.remove('show'); }
+        /** 打开弹窗并从当前生效筛选同步到临时状态与表单控件 */
+        function pcOpenDateModal() {
+            pcDateModal.classList.remove('fd-modal-overlay--no-transition');
+            pcDateModal.classList.add('show');
+            pcTempSelection = {
+                year: pcActiveFilter.year,
+                month: pcActiveFilter.month,
+                day: pcActiveFilter.day,
+                dayOfMonth: pcActiveFilter.dayOfMonth != null ? pcActiveFilter.dayOfMonth : null,
+            };
+            pcApplyTempSelectionToUI();
+        }
+        /**
+         * 关闭日期弹窗。
+         * @param {boolean} [instant=false] true 时跳过过渡（取消按钮），避免遮罩动画卡顿
+         */
+        function pcCloseDateModal(instant) {
+            if (instant) {
+                pcDateModal.classList.add('fd-modal-overlay--no-transition');
+                pcDateModal.classList.remove('show');
+                requestAnimationFrame(() => {
+                    pcDateModal.offsetHeight;
+                    pcDateModal.classList.remove('fd-modal-overlay--no-transition');
+                });
+            } else {
+                pcDateModal.classList.remove('show');
+            }
+        }
 
+        /** 合并写入 pcActiveFilter、更新顶栏提示并重新拉取统计 */
         function pcSetFilterAndRefresh(filter) {
-            pcActiveFilter = filter || { year: null, month: null, day: null };
+            pcActiveFilter = { year: null, month: null, day: null, dayOfMonth: null, ...(filter || {}) };
             pcUpdateDateHint();
             pcLoadStatistics();
         }
 
+        /** 用 pcDateIndex.years 填充年份下拉，并刷新与临时选择一致的月/日 UI */
         function pcSetupYearOptions() {
             pcYearSelect.innerHTML = '<option value="">-- 年 --</option>';
-            pcMonthSelect.innerHTML = '<option value="">-- 月 --</option>';
-            pcMonthSelect.disabled = true;
             pcDayGrid.innerHTML = '';
             pcDayCaption.textContent = '';
             const years = (pcDateIndex && pcDateIndex.years) ? pcDateIndex.years : [];
@@ -324,99 +614,234 @@
             pcApplyTempSelectionToUI();
         }
 
+        /** @returns {number[]} 指定年份在数据中出现过的月份 */
         function pcMonthsForYear(y) { return (pcDateIndex && pcDateIndex.months_by_year) ? (pcDateIndex.months_by_year[String(y)] || []) : []; }
+        /** @returns {number[]} 所有年份合并去重后的月份（未选年时月份下拉用） */
+        function pcMonthsUnionAllYears() {
+            if (!pcDateIndex || !pcDateIndex.months_by_year) return [];
+            const s = new Set();
+            Object.values(pcDateIndex.months_by_year).forEach((arr) => { (arr || []).forEach((mo) => s.add(mo)); });
+            return [...s].sort((a, b) => a - b);
+        }
+        /** @returns {number[]} 指定年月中在数据中出现过的「日」 */
         function pcDaysForYearMonth(y, m) { return (pcDateIndex && pcDateIndex.days_by_year_month) ? (pcDateIndex.days_by_year_month[`${y}-${pcPad2(m)}`] || []) : []; }
+        /** @returns {number[]} 公历 m 月在任意年份中出现过的「日」并集（无年份筛选时日历用） */
+        function pcDaysForMonthAcrossYears(m) {
+            const mm = pcPad2(m);
+            const days = new Set();
+            if (!pcDateIndex || !pcDateIndex.days_by_year_month) return [];
+            Object.keys(pcDateIndex.days_by_year_month).forEach((key) => {
+                if (key.length >= 7 && key.slice(5, 7) === mm)
+                    (pcDateIndex.days_by_year_month[key] || []).forEach((d) => days.add(d));
+            });
+            return [...days].sort((a, b) => a - b);
+        }
 
+        /** 填充月份下拉：有年则仅该年有的月可选；无年则各年并集；无数据时禁用 */
+        function pcFillMonthSelectOptions() {
+            pcMonthSelect.innerHTML = '<option value="">-- 月 --</option>';
+            const monthsList = pcTempSelection.year ? pcMonthsForYear(pcTempSelection.year) : pcMonthsUnionAllYears();
+            for (let mo = 1; mo <= 12; mo++) {
+                const opt = new Option(String(mo) + ' 月', String(mo));
+                if (monthsList.indexOf(mo) === -1) opt.disabled = true;
+                pcMonthSelect.appendChild(opt);
+            }
+            pcMonthSelect.disabled = monthsList.length === 0;
+        }
+
+        /**
+         * 渲染日历格：有年则该年该月；无年则用 2020 仅排版，可选日为各年该月并集。
+         * 点击有数据且已选月的日期会立即应用筛选并关弹窗。
+         */
         function pcRenderDayGrid(y, m) {
             pcDayGrid.innerHTML = '';
-            if (!y || !m) { pcDayCaption.textContent = ''; return; }
-            const dim = pcDaysInMonth(Number(y), Number(m));
-            const available = new Set(pcDaysForYearMonth(y, m));
-            pcDayCaption.textContent = `${y}-${pcPad2(m)}（${available.size}天有数据）`;
-            // 添加星期标题
+            if (!m) {
+                pcDayCaption.textContent = '';
+                return;
+            }
+            const mi = Number(m);
             ['一', '二', '三', '四', '五', '六', '日'].forEach(w => pcDayGrid.appendChild(Object.assign(document.createElement('div'), { className: 'fd-filter__weekday', textContent: w })));
-            // 计算第一天是星期几（周一为一周开始）
-            const offset = (new Date(Number(y), Number(m) - 1, 1).getDay() + 6) % 7;
-            for (let i = 0; i < offset; i++) pcDayGrid.appendChild(document.createElement('div'));
-            for (let d = 1; d <= dim; d++) {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'fd-filter__day-btn ' + (available.has(d) ? 'is-enabled' : 'is-disabled');
-                btn.textContent = d;
-                if (available.has(d)) btn.onclick = () => { pcTempSelection.day = `${y}-${pcPad2(m)}-${pcPad2(d)}`; pcHighlightSelectedDay(); };
-                btn.dataset.day = d;
-                pcDayGrid.appendChild(btn);
+            if (y != null) {
+                const yi = Number(y);
+                const dim = pcDaysInMonth(yi, mi);
+                const available = new Set(pcDaysForYearMonth(yi, mi));
+                pcDayCaption.textContent = `${yi}-${pcPad2(mi)}（${available.size} 天有数据）`;
+                const offset = (new Date(yi, mi - 1, 1).getDay() + 6) % 7;
+                for (let d = 1; d <= dim; d++) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'fd-filter__day-btn ' + (available.has(d) ? 'is-enabled' : 'is-disabled');
+                    btn.textContent = d;
+                    if (d === 1 && offset > 0) btn.style.gridColumnStart = String(offset + 1);
+                    if (available.has(d)) btn.onclick = () => {
+                        pcTempSelection.day = `${yi}-${pcPad2(mi)}-${pcPad2(d)}`;
+                        pcTempSelection.dayOfMonth = null;
+                        pcHighlightSelectedDay();
+                        if (pcTempSelection.month != null) {
+                            pcSetFilterAndRefresh({ ...pcTempSelection });
+                            pcCloseDateModal(false);
+                        }
+                    };
+                    btn.dataset.day = d;
+                    pcDayGrid.appendChild(btn);
+                }
+            } else {
+                const refY = 2020;
+                const dim = pcDaysInMonth(refY, mi);
+                const available = new Set(pcDaysForMonthAcrossYears(mi));
+                pcDayCaption.textContent = `各年份 ${mi} 月（${available.size} 个日期在数据中出现）`;
+                const offset = (new Date(refY, mi - 1, 1).getDay() + 6) % 7;
+                for (let d = 1; d <= dim; d++) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'fd-filter__day-btn ' + (available.has(d) ? 'is-enabled' : 'is-disabled');
+                    btn.textContent = d;
+                    if (d === 1 && offset > 0) btn.style.gridColumnStart = String(offset + 1);
+                    if (available.has(d)) btn.onclick = () => {
+                        pcTempSelection.day = null;
+                        pcTempSelection.dayOfMonth = d;
+                        pcHighlightSelectedDay();
+                        if (pcTempSelection.month != null) {
+                            pcSetFilterAndRefresh({ ...pcTempSelection });
+                            pcCloseDateModal(false);
+                        }
+                    };
+                    btn.dataset.day = d;
+                    pcDayGrid.appendChild(btn);
+                }
             }
             pcHighlightSelectedDay();
         }
 
+        /** 在日历按钮上标出当前临时选择（具体日或跨年的日号） */
         function pcHighlightSelectedDay() {
             const y = pcTempSelection.year, m = pcTempSelection.month, day = pcTempSelection.day;
-            const selectedD = (day && y && m && day.startsWith(`${y}-${pcPad2(m)}-@`)) ? Number(day.slice(8, 10)) : null;
-            pcDayGrid.querySelectorAll('button.fd-filter__day-btn.is-enabled').forEach(b => b.classList.toggle('is-selected', selectedD === Number(b.dataset.day)));
+            const dom = pcTempSelection.dayOfMonth;
+            pcDayGrid.querySelectorAll('button.fd-filter__day-btn').forEach((b) => {
+                const n = Number(b.dataset.day);
+                let sel = false;
+                if (y != null && m != null && day && String(day).length >= 10 && day.startsWith(`${y}-${pcPad2(m)}-`))
+                    sel = n === Number(day.slice(8, 10));
+                else if (y == null && m != null && dom != null)
+                    sel = n === dom;
+                b.classList.toggle('is-selected', b.classList.contains('is-enabled') && sel);
+            });
         }
 
+        /** 将 pcTempSelection 同步到年/月下拉并重画日网格；非法组合会回退清空 */
         function pcApplyTempSelectionToUI() {
             pcYearSelect.value = pcTempSelection.year ? String(pcTempSelection.year) : '';
-            pcMonthSelect.innerHTML = '<option value="">-- 月 --</option>';
-            if (pcTempSelection.year) {
-                const months = pcMonthsForYear(pcTempSelection.year);
-                for (let m = 1; m <= 12; m++) {
-                    const opt = new Option(String(m) + ' 月', String(m));
-                    if (months.indexOf(m) === -1) opt.disabled = true;
-                    pcMonthSelect.appendChild(opt);
+            pcFillMonthSelectOptions();
+            if (pcTempSelection.month != null) {
+                const opt = [...pcMonthSelect.options].find((o) => o.value === String(pcTempSelection.month) && !o.disabled);
+                if (opt) pcMonthSelect.value = String(pcTempSelection.month);
+                else {
+                    pcTempSelection.month = null;
+                    pcTempSelection.day = null;
+                    pcTempSelection.dayOfMonth = null;
+                    pcMonthSelect.value = '';
                 }
-                pcMonthSelect.disabled = false;
-                pcMonthSelect.value = pcTempSelection.month ? String(pcTempSelection.month) : '';
-            } else {
-                pcMonthSelect.disabled = true;
-                pcTempSelection.month = null;
-                pcTempSelection.day = null;
-            }
+            } else pcMonthSelect.value = '';
             pcRenderDayGrid(pcTempSelection.year, pcTempSelection.month);
         }
-        // 日期选择器事件绑定
-        pcYearSelect.onchange = function() { pcTempSelection.year = pcYearSelect.value ? Number(pcYearSelect.value) : null; pcTempSelection.month = null; pcTempSelection.day = null; pcApplyTempSelectionToUI(); };
-        pcMonthSelect.onchange = function() { pcTempSelection.month = pcMonthSelect.value ? Number(pcMonthSelect.value) : null; pcTempSelection.day = null; pcRenderDayGrid(pcTempSelection.year, pcTempSelection.month); };
-        document.getElementById('pc-btn-date-cancel').onclick = pcCloseDateModal;
-        document.getElementById('pc-btn-date-cancel2').onclick = pcCloseDateModal;
-        document.getElementById('pc-btn-date-confirm').onclick = () => { pcCloseDateModal(); pcSetFilterAndRefresh(pcTempSelection); };
-        document.getElementById('pc-btn-date').onclick = pcOpenDateModal;
-        document.getElementById('pc-btn-date-clear').onclick = () => { pcActiveFilter = { year: null, month: null, day: null }; pcUpdateDateHint(); pcLoadStatistics(); };
-        // 菜单切换（视图跳转）
-        const pcPageTitleMap = { overview: '数据概览', statistics: '数据统计', details: '消费明细' };
 
+        /** 年份变更：清空「年」时保留月并把具体日转为各年同日号；选年时校验月是否在该年有数据 */
+        pcYearSelect.onchange = function() {
+            const newY = pcYearSelect.value ? Number(pcYearSelect.value) : null;
+            pcTempSelection.year = Number.isFinite(newY) ? newY : null;
+            if (pcTempSelection.year == null) {
+                const d = pcTempSelection.day;
+                if (d && String(d).length >= 10 && pcTempSelection.month != null) {
+                    const dom = Number(String(d).slice(8, 10));
+                    if (Number.isFinite(dom)) pcTempSelection.dayOfMonth = dom;
+                }
+                pcTempSelection.day = null;
+                pcApplyTempSelectionToUI();
+                return;
+            }
+            if (pcTempSelection.month != null) {
+                const valid = pcMonthsForYear(pcTempSelection.year);
+                if (valid.indexOf(pcTempSelection.month) === -1) {
+                    pcTempSelection.month = null;
+                    pcTempSelection.day = null;
+                    pcTempSelection.dayOfMonth = null;
+                } else {
+                    pcTempSelection.day = null;
+                    pcTempSelection.dayOfMonth = null;
+                }
+            } else {
+                pcTempSelection.day = null;
+                pcTempSelection.dayOfMonth = null;
+            }
+            pcApplyTempSelectionToUI();
+        };
+        /** 月份变更：重置日选择并重画日网格 */
+        pcMonthSelect.onchange = function() {
+            pcTempSelection.month = pcMonthSelect.value ? Number(pcMonthSelect.value) : null;
+            pcTempSelection.day = null;
+            pcTempSelection.dayOfMonth = null;
+            pcRenderDayGrid(pcTempSelection.year, pcTempSelection.month);
+        };
+        document.getElementById('pc-btn-date-cancel').onclick = () => pcCloseDateModal(true);
+        document.getElementById('pc-btn-date-cancel2').onclick = () => pcCloseDateModal(true);
+        document.getElementById('pc-btn-date-confirm').onclick = () => {
+            pcSetFilterAndRefresh({
+                year: pcTempSelection.year,
+                month: pcTempSelection.month,
+                day: pcTempSelection.day,
+                dayOfMonth: pcTempSelection.dayOfMonth,
+            });
+            pcCloseDateModal(false);
+        };
+        document.getElementById('pc-btn-date').onclick = pcOpenDateModal;
+        document.getElementById('pc-btn-date-clear').onclick = () => {
+            pcActiveFilter = { year: null, month: null, day: null, dayOfMonth: null };
+            pcUpdateDateHint();
+            pcLoadStatistics();
+        };
+        const pcPageTitleMap = { overview: '数据概览', statistics: '数据统计', details: '消费明细' };
+        const pcSidebar = document.querySelector('.fd-pc-layout__sidebar');
+
+        /** 侧栏菜单：切换 #view-* 与顶栏标题；重复点当前项时播放强调动画；窄屏下自动收起抽屉 */
         document.querySelectorAll('.fd-pc-sidebar__item[data-page]').forEach(item => {
-            item.onclick = function() {
+            item.addEventListener('click', function () {
                 const page = this.dataset.page;
-                // 更新菜单激活样式
+                if (this.classList.contains('active')) {
+                    this.classList.remove('fd-sidebar-item--pulse');
+                    void this.offsetWidth;
+                    this.classList.add('fd-sidebar-item--pulse');
+                    const el = this;
+                    /** 侧栏脉冲动画结束一次后移除类，避免残留 */
+                    function onPulseEnd(e) {
+                        if (e.animationName !== 'fd-sidebar-item-pulse') return;
+                        el.classList.remove('fd-sidebar-item--pulse');
+                        el.removeEventListener('animationend', onPulseEnd);
+                    }
+                    this.addEventListener('animationend', onPulseEnd);
+                    window.scrollTo(0, 0);
+                    return;
+                }
                 document.querySelectorAll('.fd-pc-sidebar__item').forEach(m => m.classList.remove('active'));
                 this.classList.add('active');
-                // 切换视图显示
                 document.querySelectorAll('.fd-view').forEach(s => s.classList.remove('active'));
                 document.getElementById(`view-${page}`).classList.add('active');
-                // 更新顶部标题
                 document.getElementById('page-title').textContent = pcPageTitleMap[page];
-                // 图表容器尺寸自适应（因为显示/隐藏导致尺寸变化）
                 setTimeout(() => {
                     pcCategoryChart && pcCategoryChart.resize();
                     pcTrendChart && pcTrendChart.resize();
                     pcCategoryChart2 && pcCategoryChart2.resize();
                     pcTrendChart2 && pcTrendChart2.resize();
                 }, 50);
-                // 移动端点击菜单后自动收起侧边栏
                 if (window.innerWidth <= 768) mphoneToggleSidebar();
                 window.scrollTo(0, 0);
-            };
+            });
         });
-        // 侧边栏汉堡菜单与遮罩
         const mphoneHamburger = document.getElementById('mphone-hamburger');
-        const pcSidebar = document.querySelector('.fd-pc-layout__sidebar');
         const mphoneOverlay = document.getElementById('mphone-sidebar-overlay');
+        /** 窄屏：切换侧栏抽屉与汉堡图标、全屏遮罩 */
         function mphoneToggleSidebar() { pcSidebar.classList.toggle('active'); mphoneHamburger.classList.toggle('active'); mphoneOverlay.classList.toggle('show'); }
         mphoneHamburger.onclick = mphoneToggleSidebar;
         mphoneOverlay.onclick = mphoneToggleSidebar;
-        // 侧边栏宽度拖拽调整
         const pcResizeHandle = document.querySelector('.fd-pc-sidebar__resize');
         const pcMainContent = document.querySelector('.fd-pc-layout__main');
         let pcIsResizing = false;
@@ -424,6 +849,7 @@
         let pcRafId = null;
         let pcCurrentWidth = 240;
 
+        /** 四个 ECharts 实例在布局变化后调用 resize，避免留白或裁切 */
         function pcResizeAllCharts() {
             pcCategoryChart && pcCategoryChart.resize();
             pcTrendChart && pcTrendChart.resize();
@@ -431,20 +857,28 @@
             pcTrendChart2 && pcTrendChart2.resize();
         }
 
+        /** 桌面侧栏可拖最大宽度：保证主区至少约 640px */
         function pcGetSidebarMaxWidth() {
-            // 保证主内容区至少保留可读宽度，防止右侧内容被挤出屏幕
             const minMainWidth = 640;
             return Math.max(220, Math.min(420, window.innerWidth - minMainWidth));
         }
 
+        /** 主区左边距与侧栏宽度一致（预留与侧栏脱钩时可改此函数） */
+        function pcMainOffsetForSidebarWidth(width) {
+            return width;
+        }
+
+        /** 应用侧栏宽度并同步主区 margin/width，再 resize 图表 */
         function pcApplyResizeWidth(width) {
             pcSidebar.style.width = width + 'px';
-            pcMainContent.style.marginLeft = width + 'px';
-            pcMainContent.style.width = `calc(100% - ${width}px)`;
+            const off = pcMainOffsetForSidebarWidth(width);
+            pcMainContent.style.marginLeft = off + 'px';
+            pcMainContent.style.width = `calc(100% - ${off}px)`;
             pcCurrentWidth = width;
             pcResizeAllCharts();
         }
 
+        /** 拖拽时用 rAF 合并多次 mousemove，减少布局抖动 */
         function pcScheduleResize(width) {
             pcPendingWidth = width;
             if (pcRafId) return;
@@ -466,7 +900,8 @@
             if (!pcIsResizing) return;
             const minWidth = 180;
             const maxWidth = pcGetSidebarMaxWidth();
-            const width = Math.max(minWidth, Math.min(maxWidth, e.clientX));
+            const left = pcSidebar.getBoundingClientRect().left;
+            const width = Math.max(minWidth, Math.min(maxWidth, e.clientX - left));
             pcScheduleResize(width);
         });
         document.addEventListener('mouseup', () => {
@@ -475,8 +910,9 @@
                     cancelAnimationFrame(pcRafId);
                     pcApplyResizeWidth(pcPendingWidth);
                     pcRafId = null;
+                } else {
+                    pcApplyResizeWidth(pcCurrentWidth);
                 }
-                pcMainContent.style.marginLeft = pcCurrentWidth + 'px';
                 pcIsResizing = false;
                 pcSidebar.classList.remove('is-resizing');
                 pcMainContent.classList.remove('is-resizing');
@@ -499,7 +935,17 @@
                 pcResizeAllCharts();
             }
         });
-        // 初始化数据加载
+        /** 页面加载：同步主题开关按钮状态并绑定点击 */
+        (function pcInitThemeToggle() {
+            const btn = document.getElementById('pc-theme-toggle');
+            const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            if (btn) {
+                btn.classList.toggle('fd-theme-toggle--dark', dark);
+                btn.setAttribute('aria-checked', dark ? 'true' : 'false');
+                btn.setAttribute('aria-label', dark ? '当前为暗色主题，点击切换为明亮主题' : '当前为明亮主题，点击切换为暗色主题');
+                btn.addEventListener('click', pcToggleTheme);
+            }
+        })();
         pcLoadStatistics();
         pcLoadDateIndex();
     </script>

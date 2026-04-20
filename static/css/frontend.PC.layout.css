@@ -1,59 +1,156 @@
+/* frontend.PC.layout.css — 桌面默认：固定左侧栏、主区 margin 让位、顶栏、多视图、汉堡/遮罩占位、侧栏拖拽。
+   窄屏下侧栏/主区/汉堡的覆盖规则在 frontend.Mphone.responsive.css。 */
 /* =========================
-   侧边栏与导航
+   侧边栏与导航（桌面：左侧通栏贴边；移动端见 frontend.Mphone.responsive.css）
 ========================= */
+/* 左侧固定栏：全高贴边，flex 列 = 上 logo + 下可滚菜单 */
 .fd-pc-layout__sidebar {
     position: fixed;
     top: 0;
     left: 0;
+    bottom: 0;
     z-index: 1000;
     width: var(--sidebar-width);
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
-    background: linear-gradient(180deg, #1e3a5f 0%, #2d5a87 100%);
-    transition: width 0.3s ease;
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    /* 新建合成层，减少滚动时与主区的重绘闪烁 */
+    transform: translateZ(0);
+    border-radius: var(--sidebar-radius);
+    overflow: hidden;
+    isolation: isolate;
+    border: none;
+    border-right: 1px solid rgba(148, 163, 184, 0.38);
+    background: #edf1f8;
+    -webkit-backdrop-filter: blur(1px) saturate(1.82) brightness(0.96) contrast(1.03);
+    backdrop-filter: blur(1px) saturate(1.82) brightness(0.96) contrast(1.03);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -1px 0 rgba(15, 23, 42, 0.06),
+        inset 1px 0 0 rgba(255, 255, 255, 0.1),
+        16px 0 52px -18px rgba(15, 23, 42, 0.08);
+    /* 宽度与 transform 可被窄屏或拖拽逻辑过渡 */
+    transition:
+        width 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+        transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+/* 拖拽改宽时关闭 transition，避免指针与视觉不同步 */
 .fd-pc-layout__sidebar.is-resizing {
     transition: none;
 }
 
+/* 侧栏顶部产品名区域 */
 .fd-pc-sidebar__logo {
-    padding: 24px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 22px 20px 20px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.34);
+    background: #e8ecf4;
+    -webkit-backdrop-filter: saturate(1.65) brightness(0.97) contrast(1.02);
+    backdrop-filter: saturate(1.65) brightness(0.97) contrast(1.02);
 }
 
 .fd-pc-sidebar__logo h1 {
-    color: #fff;
+    color: var(--color-text-primary);
     font-size: 18px;
     font-weight: 600;
     line-height: 1.4;
+    letter-spacing: 0.01em;
 }
 
+/* 菜单列表：flex:1 占满剩余高度，min-height:0 允许内部滚动 */
 .fd-pc-sidebar__menu {
-    padding: 16px 0;
+    flex: 1;
+    padding: 10px 10px 16px;
+    min-height: 0;
 }
 
+/* 单条导航：整块可点，非选中态灰字 */
 .fd-pc-sidebar__item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 20px;
-    color: rgba(255, 255, 255, 0.8);
+    margin: 5px 6px;
+    padding: 12px 16px;
+    border-radius: 14px;
+    color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all 0.3s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition:
+        transform 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+        background 0.48s cubic-bezier(0.25, 0.1, 0.2, 1),
+        color 0.32s ease,
+        box-shadow 0.45s cubic-bezier(0.25, 0.1, 0.2, 1);
 }
 
-.fd-pc-sidebar__item:hover,
+.fd-pc-sidebar__item:hover:not(.active) {
+    color: var(--color-text-primary);
+    background: #e2e8f0;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(15, 23, 42, 0.04);
+    -webkit-backdrop-filter: saturate(1.72) brightness(0.97);
+    backdrop-filter: saturate(1.72) brightness(0.97);
+}
+
+/* 当前页菜单项：主色强调底 */
 .fd-pc-sidebar__item.active {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.15);
-    border-left: 3px solid var(--color-primary);
+    color: var(--color-primary-hover);
+    font-weight: 600;
+    background: #cdd4f5;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 0 0 1px rgba(79, 86, 160, 0.48);
+    -webkit-backdrop-filter: saturate(1.78) brightness(0.97) contrast(1.02);
+    backdrop-filter: saturate(1.78) brightness(0.97) contrast(1.02);
 }
 
+.fd-pc-sidebar__item:active {
+    transform: scale(0.97);
+    transition-duration: 0.1s;
+}
+
+/* 重复点击当前已选菜单时触发的强调动画（由 JS 加类） */
+.fd-pc-sidebar__item.fd-sidebar-item--pulse {
+    animation: fd-sidebar-item-pulse 0.52s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes fd-sidebar-item-pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    28% {
+        transform: scale(0.94);
+    }
+
+    55% {
+        transform: scale(1.03);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* 菜单项内图标尺寸与按下微动 */
 .fd-pc-sidebar__item svg {
     width: 20px;
     height: 20px;
+    flex-shrink: 0;
+    transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+.fd-pc-sidebar__item:active svg {
+    transform: scale(0.92);
+    transition-duration: 0.1s;
+}
+
+/* 侧栏右缘 4px 热区：鼠标拖拽改变 --sidebar-width 对应像素（JS 写 style） */
 .fd-pc-sidebar__resize {
     position: absolute;
     top: 0;
@@ -66,21 +163,25 @@
 }
 
 .fd-pc-sidebar__resize:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(148, 163, 184, 0.22);
 }
 
+/* 窄屏抽屉打开时盖住主内容的全屏遮罩；默认 display:none，.show 时显示 */
 .fd-mphone-nav__overlay {
     position: fixed;
     inset: 0;
     z-index: 999;
     display: none;
-    background: var(--color-overlay);
+    background: rgba(30, 27, 75, 0.36);
+    -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(1.6);
+    backdrop-filter: blur(var(--glass-blur-soft)) saturate(1.6);
 }
 
 .fd-mphone-nav__overlay.show {
     display: block;
 }
 
+/* 汉堡：固定左上角，桌面 display:none，窄屏由 responsive 改为 flex */
 .fd-mphone-nav__hamburger {
     position: fixed;
     top: 16px;
@@ -89,7 +190,13 @@
     display: none;
     width: 40px;
     height: 40px;
-    background: #1e3a5f;
+    background: rgba(255, 255, 255, 0.92);
+    -webkit-backdrop-filter: blur(var(--glass-blur-soft)) saturate(1.25);
+    backdrop-filter: blur(var(--glass-blur-soft)) saturate(1.25);
+    border: 1px solid rgba(255, 255, 255, 0.48);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        0 8px 24px rgba(15, 23, 42, 0.12);
     border-radius: var(--radius-md);
     flex-direction: column;
     justify-content: center;
@@ -102,10 +209,11 @@
     width: 20px;
     height: 2px;
     margin: 2px 0;
-    background: #fff;
+    background: var(--color-text-primary);
     transition: all 0.3s;
 }
 
+/* 侧栏打开时 JS 给汉堡加 .active：三线变 X */
 .fd-mphone-nav__hamburger.active span:nth-child(1) {
     transform: rotate(45deg) translate(4px, 4px);
 }
@@ -121,52 +229,159 @@
 /* =========================
    页面布局
 ========================= */
+/* 主内容区：左边距等于侧栏宽，避免被 fixed 侧栏遮挡 */
 .fd-pc-layout__main {
     margin-left: var(--sidebar-width);
     width: calc(100% - var(--sidebar-width));
     min-width: 0;
     min-height: 100vh;
-    transition: margin-left 0.3s ease;
+    min-height: 100dvh;
+    background: transparent;
+    transition:
+        margin-left 0.45s cubic-bezier(0.32, 0.72, 0, 1),
+        width 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 桌面稍宽屏：主区左内缘浅阴影，与侧栏分界更柔和 */
+@media (min-width: 769px) {
+    .fd-pc-layout__main {
+        box-shadow: inset 8px 0 24px -8px rgba(var(--shadow-ink), 0.07);
+    }
 }
 
 .fd-pc-layout__main.is-resizing {
     transition: none;
 }
 
+/* 顶栏容器：相对定位，内含标题行 + 第二行筛选提示 */
 .fd-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    position: relative;
+    z-index: 1;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 24px;
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 0 24px 8px;
+    padding: 12px 18px;
+    border-radius: var(--radius-xl);
+    transform: translateZ(0);
+    background: #f1f5f9;
+    -webkit-backdrop-filter: blur(1px) saturate(1.82) brightness(0.96) contrast(1.03);
+    backdrop-filter: blur(1px) saturate(1.82) brightness(0.96) contrast(1.03);
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -1px 0 rgba(15, 23, 42, 0.06),
+        0 8px 32px rgba(var(--shadow-ink), 0.07);
 }
 
-.fd-header h2 {
-    font-size: 20px;
+/* 第一行：标题与工具条同一行；nowrap + 横向滚动防止小窗折行错乱 */
+.fd-header__row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 12px 16px;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}
+
+.fd-header__title {
+    margin: 0;
+    flex: 1 1 auto;
+    font-size: 19px;
     font-weight: 600;
     color: var(--color-text-primary);
+    line-height: 1.3;
+    min-width: 0;
 }
 
-.fd-header__actions {
-    display: flex;
+/* 主题开关 + 日期筛选按钮：同一圆角盒，视觉成组 */
+.fd-header__toolbar {
+    flex: 0 0 auto;
+    width: max-content;
+    display: inline-flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     align-items: center;
+    gap: 10px;
+    padding: 5px 10px 5px 8px;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    background: rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+html[data-theme="dark"] .fd-header__toolbar {
+    border-color: rgba(71, 85, 105, 0.55);
+    background: rgba(30, 41, 59, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.fd-header__toolbar .fd-theme-toggle,
+.fd-header__toolbar #pc-btn-date {
+    flex-shrink: 0;
+}
+
+.fd-header__toolbar #pc-btn-date {
+    white-space: nowrap;
+}
+
+/* 第二行：筛选结果提示 + 清除按钮，靠右 */
+.fd-header__filters {
+    display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 8px;
+    min-height: 0;
+}
+
+.fd-header__filters .fd-date-hint {
+    min-width: 0;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fd-pc-layout__content {
     padding: 24px;
 }
 
+/* 单页多视图：仅 .active 的 #view-* 显示 */
 .fd-view {
     display: none;
 }
 
 .fd-view.active {
     display: block;
+}
+
+/* 不支持 backdrop-filter：侧栏/顶栏/汉堡去掉模糊，改为实色 + 普通阴影，保证可读性 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fd-pc-layout__sidebar {
+        background: #e8edf4;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        border: none;
+        border-right: 1px solid var(--color-border);
+        box-shadow: 4px 0 24px rgba(var(--shadow-ink), 0.08);
+    }
+
+    .fd-header {
+        background: #e8edf4;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        border: 1px solid var(--color-border);
+        box-shadow: none;
+    }
+
+    .fd-mphone-nav__hamburger {
+        background: rgba(252, 253, 255, 0.94);
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+        border: 1px solid var(--color-border);
+        box-shadow: 0 4px 14px rgba(var(--shadow-ink), 0.08);
+    }
 }
