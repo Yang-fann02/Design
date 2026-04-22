@@ -1,13 +1,39 @@
-# Frontend CSS 维护说明（8 文件详版）
+# CSS 分层体系维护手册
 
-本目录采用「单入口 + 模块拆分 + BEM + 状态类」方式维护。  
-当前实际文件数为 **8 个 CSS 文件**，由 `frontend.PC-Mphone.css` 统一串联导入。
+本目录采用**单入口 + 模块拆分 + BEM + 状态类**方式维护，共 **8 个 CSS 文件**，由 `frontend.PC-Mphone.css` 统一串联导入。
 
 ---
 
-## 一、样式加载顺序（必须保持）
+## 目录
 
-入口文件：`frontend.PC-Mphone.css`
+1. [文件清单与职责速查](#1-文件清单与职责速查)
+2. [加载顺序（必须保持）](#2-加载顺序必须保持)
+3. [各文件详细说明](#3-各文件详细说明)
+4. [命名规则与状态类约定](#4-命名规则与状态类约定)
+5. [新增或修改样式的推荐流程](#5-新增或修改样式的推荐流程)
+6. [常见改动风险点](#6-常见改动风险点)
+7. [提交前检查清单](#7-提交前检查清单)
+
+---
+
+## 1. 文件清单与职责速查
+
+| 文件 | 职责 | 典型修改场景 |
+|------|------|-------------|
+| `frontend.PC-Mphone.css` | 总入口，只做 `@import` | 新增分层文件时在此登记 |
+| `frontend.PC.tokens.css` | 设计令牌、全局变量、reset | 新增颜色/圆角/动效变量 |
+| `frontend.PC.layout.css` | 页面骨架、侧栏、顶栏、视图动画 | 调整侧栏宽度、顶栏结构 |
+| `frontend.PC.theme.css` | 主题切换组件 + 暗色覆盖 | 新增组件的暗色适配 |
+| `frontend.PC.components.css` | 跨页面通用组件（按钮、卡片等） | 新增全局复用组件 |
+| `frontend.PC.dashboard.css` | 指标卡、图表容器、明细表 | 调整图表高度、指标卡颜色 |
+| `frontend.PC.modal.css` | 日期筛选弹窗全套 UI | 修改弹窗结构或日历样式 |
+| `frontend.Mphone.responsive.css` | `≤768px` / `≤480px` 覆盖 | 移动端布局调整 |
+
+---
+
+## 2. 加载顺序（必须保持）
+
+入口文件 `frontend.PC-Mphone.css` 的导入顺序：
 
 ```css
 @import url("/static/css/frontend.PC.tokens.css");
@@ -21,315 +47,401 @@
 
 顺序含义：
 
-1. **tokens 先定义变量与 reset**（后续文件可直接 `var(--*)`）。
-2. **layout/theme/components/dashboard/modal** 依次叠加。
-3. **responsive 最后覆盖**（`@media (max-width: 768px / 480px)` 在末尾更稳）。
+1. **tokens 先行**：后续所有文件可直接使用 `var(--*)` 变量
+2. **layout/theme/components/dashboard/modal** 依次叠加业务层
+3. **responsive 最后**：`@media` 覆盖规则放在末尾，避免被桌面规则反覆盖
 
-如果改乱顺序，常见后果：
+**打乱顺序的常见后果：**
 
-- 变量未定义导致颜色/圆角回退异常。
-- 响应式规则被桌面规则反覆盖。
-- 暗色主题覆盖不完整（`html[data-theme="dark"]` 失效感）。
-
----
-
-## 二、8 个文件逐项说明（按职责）
-
-## `frontend.PC-Mphone.css`（入口总线）
-
-定位：**只负责 import，不放业务规则**。  
-维护建议：
-
-- 新增分表时只在本文件登记，避免在 HTML 中追加多个 `<link>`。
-- 导入顺序优先遵循：变量 -> 结构 -> 主题 -> 组件 -> 业务 -> 弹窗 -> 响应式。
-- 若线上有缓存策略，改入口后注意版本号（如 query `?v=`）同步。
+- 变量未定义 → 颜色/圆角/阴影回退为浏览器默认值
+- 响应式规则被桌面规则覆盖 → 移动端布局异常
+- 暗色主题 `html[data-theme="dark"]` 覆盖不完整
 
 ---
 
-## `frontend.PC.tokens.css`（设计令牌 + 全局基线）
+## 3. 各文件详细说明
 
-定位：全站基础变量与 reset，提供统一视觉“字典”。
+### `frontend.PC-Mphone.css`（入口总线）
 
-主要内容：
+**定位**：只负责 `@import`，不放任何业务规则。
 
-- `:root` 中定义布局变量：
-  - `--sidebar-width`、`--sidebar-inset`
-  - `--radius-sm/md/lg/xl`
-- 颜色变量：
-  - `--color-surface`、`--color-text-*`
-  - `--color-primary` / `--color-primary-hover`
-  - `--color-overlay`（遮罩）
-- 阴影与玻璃参数：
-  - `--shadow-ink`、`--shadow-card`、`--shadow-modal`
-  - `--glass-blur-md`、`--glass-saturate`、`--glass-card`
-- 动效参数：
-  - `--ease-spring`、`--ease-out-expo`
-  - `--duration-fast/normal/slow`
-- 全局 reset：
-  - `* { margin: 0; padding: 0; box-sizing: border-box; }`
-- `html/body` 基础背景与移动端高度：
-  - `min-height: 100vh` + `min-height: 100dvh`
-- 减弱动画模式：
-  - `@media (prefers-reduced-motion: reduce)` 统一压缩动画/过渡时长。
+维护规范：
 
-维护边界：
-
-- **任何跨模块复用的颜色、圆角、阴影、动效**先加在这里。
-- 业务组件里不要硬编码重复值，优先引用变量。
+- 新增分层文件时，只在本文件追加导入，不要在 HTML 中额外添加 `<link>`
+- 遵循导入顺序：变量 → 结构 → 主题 → 组件 → 业务 → 弹窗 → 响应式
+- 线上有缓存策略时，修改后同步提升 query `?v=` 版本号
 
 ---
 
-## `frontend.PC.layout.css`（页面骨架与导航结构）
+### `frontend.PC.tokens.css`（设计令牌 + 全局基线）
 
-定位：PC 主结构、侧栏、顶栏、主内容区域、视图切换动画。
+**定位**：全站基础变量与 reset，提供统一视觉字典。
 
-核心结构类：
+#### 布局变量（`:root`）
 
-- 侧栏：
-  - `.fd-pc-layout__sidebar` 固定左侧主容器
-  - `.fd-pc-sidebar__logo` 顶部品牌区
-  - `.fd-pc-sidebar__menu` 菜单滚动区
-  - `.fd-pc-sidebar__item` 菜单项
-  - `.fd-pc-sidebar__resize` 右缘拖拽热区
-- 窄屏导航辅助（在本文件定义基础态）：
-  - `.fd-mphone-nav__overlay` 遮罩
-  - `.fd-mphone-nav__hamburger` 汉堡按钮
-- 主区与头部：
-  - `.fd-pc-layout__main` 主内容外壳
-  - `.fd-header` 顶栏
-  - `.fd-header__row` 标题行
-  - `.fd-header__toolbar` 工具条
-  - `.fd-header__filters` 筛选提示区
-  - `.fd-pc-layout__content` 主内容内边距
-- 多视图切换：
-  - `.fd-view` + `.fd-view.active`（进入动画 `fd-view-enter`）
+| 变量 | 含义 |
+|------|------|
+| `--sidebar-width` | 侧栏默认宽度 |
+| `--sidebar-inset` | 移动端侧栏与屏幕边缘的间距 |
+| `--radius-sm/md/lg/xl` | 圆角阶梯 |
 
-状态与交互耦合点（JS 依赖）：
+#### 颜色变量
 
-- `.fd-pc-layout__sidebar.is-resizing`：拖拽时关闭过渡。
-- `.fd-pc-layout__main.is-resizing`：主区同步关闭过渡。
-- `.fd-pc-sidebar__item.active`：当前路由菜单。
-- `.fd-pc-sidebar__item.fd-sidebar-item--pulse`：重复点击动画。
-- `.fd-mphone-nav__overlay.show`：移动遮罩显示。
-- `.fd-mphone-nav__hamburger.active`：三线转 X。
+| 变量组 | 含义 |
+|--------|------|
+| `--color-surface` | 页面底色 |
+| `--color-text` / `--color-text-muted` | 正文 / 次要文字 |
+| `--color-primary` / `--color-primary-hover` | 品牌主色 |
+| `--color-border` | 通用边框色 |
+| `--color-overlay` | 遮罩颜色 |
 
-兼容兜底：
+#### 阴影与玻璃参数
 
-- `@supports not (backdrop-filter...)` 提供无模糊浏览器的纯色/阴影退化。
+| 变量 | 含义 |
+|------|------|
+| `--shadow-card` | 卡片阴影 |
+| `--shadow-modal` | 弹窗阴影 |
+| `--glass-blur-md` | 玻璃模糊半径 |
+| `--glass-saturate` | 玻璃饱和度增强 |
+| `--glass-card` | 卡片玻璃背景色 |
 
----
+#### 动效参数
 
-## `frontend.PC.theme.css`（主题切换与暗色覆盖）
+| 变量 | 含义 |
+|------|------|
+| `--ease-spring` | 弹簧缓动曲线 |
+| `--ease-out-expo` | 指数缓出曲线 |
+| `--duration-fast/normal/slow` | 动画时长阶梯 |
 
-定位：
+#### 全局 reset
 
-1. 主题开关组件 `.fd-theme-toggle`；
-2. 暗色主题 `html[data-theme="dark"]` 的系统性覆盖。
+```css
+* { margin: 0; padding: 0; box-sizing: border-box; }
+```
 
-主题开关相关：
+`html/body` 设置基础背景色与 `min-height: 100dvh`（兼容移动端视口高度）。
 
-- `.fd-theme-toggle`：按钮外壳
-- `.fd-theme-toggle__track`：底轨
-- `.fd-theme-toggle__thumb`：滑块
-- `.fd-theme-toggle__icon--sun` / `--moon`：图标
-- `.fd-theme-toggle--dark`：按钮自身暗色状态（滑块右移 + 图标明暗切换）
+减弱动画模式：`@media (prefers-reduced-motion: reduce)` 统一压缩动画与过渡时长。
 
-暗色覆盖策略：
-
-- 在 `html[data-theme="dark"]` 一次性改写全局变量（`--color-*`、`--glass-*`、`--glow-*`）。
-- 再对关键容器做精修：
-  - 侧栏、顶栏、菜单 hover/active
-  - 弹窗遮罩与面板
-  - 表单 select、日历网格、提示区
-  - 移动端汉堡按钮（暗色下避免浅线贴白底）
-
-维护建议：
-
-- 若新增组件只使用变量，一般可自动适配暗色。
-- 若视觉需要微调，再在本文件补 `html[data-theme="dark"] .新类名 { ... }`。
+**维护边界**：任何跨模块复用的颜色、圆角、阴影、动效先加在这里，组件内优先引用变量，不要硬编码。
 
 ---
 
-## `frontend.PC.components.css`（通用组件层）
+### `frontend.PC.layout.css`（页面骨架与导航结构）
 
-定位：跨页面复用组件，不放某个业务页专属布局。
+**定位**：PC 主结构、侧栏、顶栏、主内容区域、视图切换动画。
 
-主要组件：
+#### 核心结构类
 
-- 按钮体系：
-  - `.fd-btn` 基类（过渡、排版）
-  - `.fd-btn--primary` 主按钮（实色 + 光晕）
-  - `.fd-btn--outline` 次按钮（线框/浅底）
-- 卡片：
-  - `.fd-card` 玻璃卡片容器
-- 文本与工具：
-  - `.fd-section-title` 章节标题下划线动画
-  - `.fd-date-hint` 筛选提示文本
-  - `.fd-hidden` 强制隐藏（JS 切换）
+**侧栏：**
 
-兼容兜底：
+| 类名 | 说明 |
+|------|------|
+| `.fd-pc-layout__sidebar` | 固定左侧主容器 |
+| `.fd-pc-sidebar__logo` | 顶部品牌区 |
+| `.fd-pc-sidebar__menu` | 菜单滚动区 |
+| `.fd-pc-sidebar__item` | 菜单项 |
+| `.fd-pc-sidebar__resize` | 右缘拖拽热区（宽度拖拽功能） |
 
-- `@supports not (backdrop-filter...)` 下组件退化为实色方案。
+**移动端导航辅助（基础态在此定义）：**
 
-维护边界：
+| 类名 | 说明 |
+|------|------|
+| `.fd-mphone-nav__overlay` | 侧栏遮罩 |
+| `.fd-mphone-nav__hamburger` | 汉堡按钮（桌面端 `display:none`） |
 
-- 新增“全局可复用”的按钮/卡片/标题样式放这里。
-- 若只服务某个业务块，请放 `dashboard` 或 `modal`。
+**主区与头部：**
 
----
+| 类名 | 说明 |
+|------|------|
+| `.fd-pc-layout__main` | 主内容外壳（含 `margin-left` 让出侧栏） |
+| `.fd-header` | 顶部标题栏 |
+| `.fd-header__row` | 标题行（标题 + 工具条） |
+| `.fd-header__toolbar` | 右侧工具条 |
+| `.fd-header__filters` | 筛选条件提示区 |
+| `.fd-pc-layout__content` | 主内容内边距容器 |
 
-## `frontend.PC.dashboard.css`（统计、图表、表格业务层）
+**多视图切换：**
 
-定位：数据展示区专属样式。
+| 类名 | 说明 |
+|------|------|
+| `.fd-view` | 视图容器基础态（`display:none`） |
+| `.fd-view.active` | 当前激活视图，进入动画 `fd-view-enter` |
 
-主要区域：
+#### JS 强依赖状态类
 
-- 指标卡网格：
-  - `.fd-stats` 网格容器
-  - `.fd-stats__card` 指标卡
-  - 修饰符：`--blue` / `--green` / `--teal` / `--purple`
-  - 文案：`.fd-stats__label`、`.fd-stats__value`、`.fd-stats__date-range`
-- 图表区：
-  - `.fd-charts`（桌面双列）
-  - `.fd-charts__container`（ECharts 容器高度）
-  - `.fd-card__header` / `.fd-card__body`（卡片内部结构）
-- 表格区：
-  - `.fd-table`（横向滚动容器）
-  - `.fd-table--body-cap`（纵向限高 + sticky 表头）
-  - 全局 `table/th/td/tr` 外观与 hover 行反馈
+| 状态类 | 触发时机 |
+|--------|---------|
+| `.fd-pc-layout__sidebar.is-resizing` | 拖拽侧栏宽度时（关闭过渡动效） |
+| `.fd-pc-layout__main.is-resizing` | 同上，主区同步 |
+| `.fd-pc-sidebar__item.active` | 当前激活路由 |
+| `.fd-pc-sidebar__item.fd-sidebar-item--pulse` | 重复点击当前菜单时的抖动动画 |
+| `.fd-mphone-nav__overlay.show` | 移动端侧栏展开时遮罩可见 |
+| `.fd-mphone-nav__hamburger.active` | 汉堡三线变 ×（侧栏展开态） |
 
-维护要点：
-
-- 新图表容器优先复用 `.fd-charts__container` 高度约束。
-- 详情表若需要“固定表头 + 内容滚动”，沿用 `.fd-table--body-cap`。
-
----
-
-## `frontend.PC.modal.css`（日期筛选弹窗）
-
-定位：日期筛选弹窗全套 UI（遮罩、面板、年月、日历、提示、按钮区）。
-
-核心结构：
-
-- 弹窗可见性：
-  - `.fd-modal-overlay`（默认隐藏）
-  - `.fd-modal-overlay.show`（显示）
-  - `.fd-modal`（面板）
-- 动效控制：
-  - `.fd-modal-overlay--no-transition`（JS 关闭时避免卡顿）
-- 面板分区：
-  - `.fd-modal__header` / `__body` / `__footer`
-  - `.fd-modal__close`（关闭按钮旋转反馈）
-- 日期过滤模块：
-  - `.fd-date-filter__section`（块容器）
-  - `.fd-filter__row--ym`（年/月双列）
-  - `.fd-form-select`（原生下拉统一皮肤）
-  - `.fd-filter__day-grid`（7 列日历网格）
-  - `.fd-filter__day-btn`（日期按钮）
-  - `.fd-filter__tip-wrap` / `.fd-filter__tip`（底部提示）
-
-状态类（JS 强依赖）：
-
-- `.fd-filter__day-btn.is-disabled`：不可选占位
-- `.fd-filter__day-btn.is-enabled`：可选日期
-- `.fd-filter__day-btn.is-selected`：当前选中日期
-- `.fd-filter__day-grid:empty`：无年月数据时隐藏空网格
-
-兼容兜底：
-
-- 无 `backdrop-filter` 时遮罩与弹窗切为纯色+普通阴影。
+**兼容兜底**：`@supports not (backdrop-filter: blur(1px))` 下提供纯色/阴影退化方案。
 
 ---
 
-## `frontend.Mphone.responsive.css`（窄屏覆盖层）
+### `frontend.PC.theme.css`（主题切换与暗色覆盖）
 
-定位：`<=768px` 与 `<=480px` 的覆盖规则，确保移动端可用性。
+**定位**：主题切换组件样式 + `html[data-theme="dark"]` 系统性覆盖。
 
-`@media (max-width: 768px)` 关键行为：
+#### 主题切换组件类
 
-- 主区全宽化：
-  - `.fd-pc-layout__main { margin-left: 0; width: 100%; }`
-- 侧栏改抽屉：
-  - `.fd-pc-layout__sidebar` 默认移出屏幕
-  - `.fd-pc-layout__sidebar.active` 滑入
-- 汉堡按钮启用：
-  - `.fd-mphone-nav__hamburger { display: flex; }`
-- 顶栏重排：
-  - 标题独占一行，工具栏换行并靠右
-- 内容区与业务区压缩：
-  - `.fd-pc-layout__content` 收紧内边距
-  - `.fd-stats` 改 2 列
-  - `.fd-charts` 改单列
-  - `.fd-charts__container` 高度降到 `280px`
-  - 表格字号、内边距、滚动高度同步调整
+| 类名 | 说明 |
+|------|------|
+| `.fd-theme-toggle` | 开关按钮外壳 |
+| `.fd-theme-toggle__track` | 底部轨道 |
+| `.fd-theme-toggle__thumb` | 滑块 |
+| `.fd-theme-toggle__icon--sun` | 太阳图标 |
+| `.fd-theme-toggle__icon--moon` | 月亮图标 |
+| `.fd-theme-toggle--dark` | 暗色态（滑块右移 + 图标切换） |
 
-`@media (max-width: 480px)` 进一步收敛：
+#### 暗色覆盖策略
 
-- `.fd-stats` 改单列
-- 标题字号再降
-- `.fd-btn` 内边距与字号减小
+1. 在 `html[data-theme="dark"]` 一次性重写全局 CSS 变量（`--color-*`、`--glass-*`）
+2. 对视觉需要精修的容器补充精确覆盖：
+   - 侧栏、顶栏、菜单 hover / active 态
+   - 弹窗遮罩与面板
+   - 表单 `<select>`、日历网格、提示区
+   - 移动端汉堡按钮（避免深色线条贴白底）
+
+**维护建议**：若新增组件完全使用 CSS 变量，一般可自动适配暗色；若有视觉差异，在本文件追加 `html[data-theme="dark"] .新类名 { ... }` 覆盖。
 
 ---
 
-## 三、命名规则与状态管理（当前实现）
+### `frontend.PC.components.css`（通用组件层）
 
-前缀与结构：
+**定位**：跨页面复用的通用组件，不放某个业务页专属布局。
 
-- 统一前缀：`fd-`
-- BEM：`block__element--modifier`
-- 平台语义：
-  - PC 结构常见 `fd-pc-*`
-  - 移动导航常见 `fd-mphone-*`
+#### 主要组件
 
-状态类约定（不要和结构类混写）：
+**按钮体系：**
 
-- 通用状态：`.active` / `.show` / `.fd-hidden`
-- 交互状态：`.is-resizing` / `.is-disabled` / `.is-enabled` / `.is-selected`
-- 主题状态：`html[data-theme="dark"]`、`.fd-theme-toggle--dark`
+| 类名 | 说明 |
+|------|------|
+| `.fd-btn` | 基类（过渡、字体、光标） |
+| `.fd-btn--primary` | 主按钮（实色背景 + 光晕效果） |
+| `.fd-btn--outline` | 次要按钮（线框 / 浅底） |
 
----
+**卡片：**
 
-## 四、新增或修改样式的推荐流程（实操版）
+| 类名 | 说明 |
+|------|------|
+| `.fd-card` | 玻璃效果卡片容器 |
 
-1. **先判断层级**  
-   令牌改动进 `tokens`；结构进 `layout`；通用控件进 `components`；业务展示进 `dashboard`；筛选弹窗进 `modal`；窄屏覆盖进 `responsive`；暗色补丁进 `theme`。
+**文本与工具类：**
 
-2. **先变量后组件**  
-   新颜色/阴影/动画优先进 `:root`，组件只消费变量。
+| 类名 | 说明 |
+|------|------|
+| `.fd-section-title` | 章节标题（下划线进入动画） |
+| `.fd-date-hint` | 当前筛选条件提示文本 |
+| `.fd-hidden` | 强制隐藏（JS 切换用） |
 
-3. **先桌面后移动**  
-   在桌面文件完成默认样式，再到 `frontend.Mphone.responsive.css` 做覆盖，不要反向写。
+**兼容兜底**：`@supports not (backdrop-filter...)` 下组件退化为实色方案。
 
-4. **状态由 JS 切类，不写内联样式**  
-   尤其是侧栏开关、弹窗显示、日期按钮选中态。
-
-5. **同步暗色与兼容兜底**  
-   新增高频组件时，至少补：
-   - 暗色覆盖（`html[data-theme="dark"]`）
-   - 无 blur 兜底（`@supports not (backdrop-filter...)`）
-
-6. **验证 3 个场景**  
-   桌面亮色、桌面暗色、窄屏（<=768 和 <=480）。
+**维护边界**：新增"全局可复用"样式放这里；若只服务某个业务块，请放 `dashboard` 或 `modal`。
 
 ---
 
-## 五、常见改动的风险点
+### `frontend.PC.dashboard.css`（统计、图表、表格业务层）
 
-- 改 `--sidebar-width` 后，确认主区宽度与拖拽逻辑同步（`layout` + JS）。
-- 改顶栏结构时，确认窄屏标题不会被压成“竖排断字”。
-- 调整图表卡片尺寸时，确认 ECharts 容器高度和重绘逻辑一致。
-- 调整日期筛选时，确认 `.is-enabled/.is-selected` 仍由 JS 正确切换。
-- 引入新玻璃效果时，确认 `@supports not` 下仍可读可点。
+**定位**：数据展示区专属样式，仅在 dashboard 类视图内使用。
+
+#### 指标卡网格
+
+| 类名 | 说明 |
+|------|------|
+| `.fd-stats` | 四列网格容器 |
+| `.fd-stats__card` | 单个指标卡 |
+| `.fd-stats__card--blue/green/teal/purple` | 颜色修饰符 |
+| `.fd-stats__label` | 指标标签文字 |
+| `.fd-stats__value` | 指标数值（大字） |
+| `.fd-stats__date-range` | 数据时间范围提示 |
+
+#### 图表区
+
+| 类名 | 说明 |
+|------|------|
+| `.fd-charts` | 双列图表网格 |
+| `.fd-charts__container` | ECharts 容器（`width:100%`，`height:350px`） |
+| `#pc-category-chart, #pc-category-chart2` | 饼图容器覆盖高度（`420px`，留足外侧标签空间） |
+| `.fd-card__header` | 卡片标题行 |
+| `.fd-card__body` | 卡片内容区（内边距容器） |
+
+#### 表格区
+
+| 类名 | 说明 |
+|------|------|
+| `.fd-table` | 横向滚动容器 |
+| `.fd-table--body-cap` | 纵向限高 + sticky 表头（约 10 行高） |
+
+全局 `table/th/td/tr` 外观与行 hover 反馈也在本文件定义。
+
+**维护要点**：
+
+- 新图表容器优先复用 `.fd-charts__container`
+- 需要"固定表头 + 内容滚动"的表格沿用 `.fd-table--body-cap`
 
 ---
 
-## 六、重构检查清单（提交前）
+### `frontend.PC.modal.css`（日期筛选弹窗）
 
-- 8 个文件职责是否仍清晰，无跨层乱放。
-- 入口 `frontend.PC-Mphone.css` 的 import 顺序是否正确。
-- 是否复用变量，避免重复硬编码色值/阴影。
-- 暗色 `html[data-theme="dark"]` 是否补齐新增组件。
-- 无 blur 浏览器的退化样式是否可用。
-- `<=768px` 与 `<=480px` 是否都测试通过。
-- JS 依赖状态类（`active/show/is-*`）是否保持不变。
-- 文档与实现是否一致（本 README 是否同步更新）。
+**定位**：日期筛选弹窗全套 UI（遮罩 → 面板 → 年月选择 → 日历网格 → 底部提示与按钮）。
+
+#### 核心结构
+
+| 类名 | 说明 |
+|------|------|
+| `.fd-modal-overlay` | 全屏遮罩（默认隐藏） |
+| `.fd-modal-overlay.show` | 弹窗可见态 |
+| `.fd-modal` | 弹窗面板 |
+| `.fd-modal-overlay--no-transition` | JS 关闭时临时禁用过渡，避免卡顿 |
+| `.fd-modal__header/body/footer` | 面板三区 |
+| `.fd-modal__close` | 关闭按钮（hover 旋转反馈） |
+
+#### 日期过滤模块
+
+| 类名 | 说明 |
+|------|------|
+| `.fd-date-filter__section` | 块容器 |
+| `.fd-filter__row--ym` | 年/月双列 flexbox 行 |
+| `.fd-form-select` | 原生 `<select>` 统一皮肤 |
+| `.fd-filter__day-grid` | 7 列日历网格 |
+| `.fd-filter__day-btn` | 单个日期按钮 |
+| `.fd-filter__tip-wrap` | 底部提示容器 |
+| `.fd-filter__tip` | 提示文字 |
+
+#### JS 强依赖状态类
+
+| 状态类 | 说明 |
+|--------|------|
+| `.fd-filter__day-btn.is-disabled` | 该日无数据，不可选 |
+| `.fd-filter__day-btn.is-enabled` | 该日有数据，可点击 |
+| `.fd-filter__day-btn.is-selected` | 当前已选中日期 |
+| `.fd-filter__day-grid:empty` | 无年月数据时隐藏空网格 |
+
+**兼容兜底**：无 `backdrop-filter` 时遮罩与面板切为纯色 + 普通阴影。
+
+---
+
+### `frontend.Mphone.responsive.css`（窄屏覆盖层）
+
+**定位**：`≤768px` 与 `≤480px` 的响应式覆盖，确保移动端可用性。
+
+#### `@media (max-width: 768px)` 关键变更
+
+| 规则 | 说明 |
+|------|------|
+| `.fd-pc-layout__main { margin-left: 0; width: 100% }` | 主区全宽（侧栏已 fixed 移出文档流） |
+| `.fd-pc-layout__sidebar` transform | 默认移出屏幕左侧 |
+| `.fd-pc-layout__sidebar.active` | 侧栏滑入（JS 添加 `.active`） |
+| `.fd-mphone-nav__hamburger { display: flex }` | 显示汉堡按钮 |
+| `.fd-header` 内边距 | 左侧预留汉堡按钮空间 |
+| `.fd-header__row { flex-wrap: wrap }` | 标题独占一行，工具条换行靠右 |
+| `.fd-stats { grid-template-columns: repeat(2, 1fr) }` | 指标卡改 2 列 |
+| `.fd-charts { grid-template-columns: minmax(0,1fr) }` | 图表改单列 |
+| `.fd-charts__container { height: 280px }` | 图表容器高度降低 |
+| `#pc-category-chart, #pc-category-chart2 { height: 420px }` | 饼图保持较高（顶部图例占空间） |
+| 表格字号 / 内边距 / 最大高度 | 适配小屏触摸操作 |
+
+#### `@media (max-width: 480px)` 进一步收敛
+
+| 规则 | 说明 |
+|------|------|
+| `.fd-stats { grid-template-columns: 1fr }` | 指标卡改单列 |
+| `.fd-header__title { font-size: 16px }` | 标题字号再降 |
+| `.fd-btn` 内边距 / 字号 | 按钮更紧凑 |
+
+---
+
+## 4. 命名规则与状态类约定
+
+### BEM 命名
+
+```
+.fd-{block}__{element}--{modifier}
+```
+
+- **统一前缀**：`fd-`（Frontend Dashboard）
+- **平台语义**：PC 结构用 `fd-pc-*`，移动端导航用 `fd-mphone-*`
+- **修饰符**：颜色变体用 `--blue/green/teal/purple` 等语义名
+
+### 状态类约定
+
+| 类型 | 类名模式 | 示例 |
+|------|----------|------|
+| 通用显隐 | `.active` / `.show` / `.fd-hidden` | 视图激活、弹窗显示 |
+| 交互状态 | `.is-*` | `.is-resizing` `.is-selected` `.is-disabled` |
+| 主题状态 | `html[data-theme="dark"]` | 暗色模式全局覆盖 |
+| 组件自身状态 | `--dark` 修饰符 | `.fd-theme-toggle--dark` |
+
+**重要**：状态类只由 JS 切换，不要在 CSS 内通过其他选择器模拟状态逻辑。
+
+---
+
+## 5. 新增或修改样式的推荐流程
+
+### 第一步：判断层级
+
+```
+变量改动  → tokens
+结构改动  → layout
+暗色精修  → theme
+新通用组件 → components
+业务展示  → dashboard
+弹窗相关  → modal
+移动端覆盖 → responsive
+```
+
+### 第二步：先变量后组件
+
+新颜色 / 阴影 / 动画优先加到 `tokens` 的 `:root`，组件内消费变量，避免硬编码。
+
+### 第三步：先桌面后移动
+
+在桌面文件完成默认样式，再到 `responsive` 做覆盖。不要从移动端反向改桌面文件。
+
+### 第四步：状态由 JS 切类
+
+尤其是侧栏开关、弹窗显示、日期按钮选中态，不要用内联 style 覆盖。
+
+### 第五步：同步暗色与兼容兜底
+
+新增频繁使用的组件时至少补：
+
+1. 暗色覆盖（`html[data-theme="dark"] .新类名 { ... }` 在 `theme.css`）
+2. 无 blur 兜底（`@supports not (backdrop-filter...)` 在对应文件）
+
+### 第六步：验证三个场景
+
+- 桌面亮色
+- 桌面暗色
+- 窄屏 ≤768px 与 ≤480px
+
+---
+
+## 6. 常见改动风险点
+
+| 改动点 | 风险 | 应对措施 |
+|--------|------|---------|
+| 修改 `--sidebar-width` | 主区宽度与侧栏拖拽逻辑不同步 | 同步检查 `layout.css` 中 `calc` 与 JS 中的 `pcApplyResizeWidth` |
+| 改顶栏结构 | 窄屏标题被压成竖排断字 | 确认 `.fd-header__title { white-space: normal; flex: 1 1 100% }` 在 `responsive` 中生效 |
+| 调整图表卡片尺寸 | ECharts 容器高度与重绘逻辑不一致 | 同步修改 `dashboard.css` 中容器高度，并检查移动端覆盖 |
+| 修改日期弹窗 | `.is-enabled/.is-selected` 被意外覆盖 | 确保状态类样式优先级足够，不要用 `!important` 掩盖问题 |
+| 新增玻璃效果 | 不支持 `backdrop-filter` 的浏览器样式崩 | 补充 `@supports not` 退化方案 |
+| 调整 `@import` 顺序 | 全局样式层叠逻辑混乱 | 严格遵循第 2 节规定的顺序 |
+
+---
+
+## 7. 提交前检查清单
+
+- [ ] 8 个文件职责仍清晰，无跨层乱放
+- [ ] `frontend.PC-Mphone.css` 的 `@import` 顺序正确
+- [ ] 新增颜色/圆角/阴影已提取为 CSS 变量，避免硬编码
+- [ ] 暗色 `html[data-theme="dark"]` 已覆盖新增组件
+- [ ] 无 `backdrop-filter` 的退化样式已补充
+- [ ] `≤768px` 与 `≤480px` 均已测试
+- [ ] JS 依赖的状态类（`active/show/is-*`）命名保持不变
+- [ ] 本文档（README.md）已与实现保持同步

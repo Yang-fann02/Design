@@ -39,19 +39,52 @@ def expense_row_count():
 
 
 def init_db():
-    """若不存在则创建 expenses 表（id, date, category, amount），不删除已有数据。"""
+    """
+    初始化数据库：
+    1. 若 expenses 表不存在则创建（含完整约束）。
+    2. 若表已存在但 category 列缺少 NOT NULL 约束（旧库兼容），
+       通过"重建表 + 迁移数据"的方式补全，保证零数据丢失。
+    """
     conn = get_db()
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            category TEXT NOT NULL,
-            amount REAL NOT NULL
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            date     TEXT    NOT NULL,
+            category TEXT    NOT NULL,
+            amount   REAL    NOT NULL
         )
         """
     )
     conn.commit()
+
+    # 检测 category 列是否已有 NOT NULL 约束；SQLite PRAGMA table_info 的 notnull 字段
+    col_info = conn.execute("PRAGMA table_info(expenses)").fetchall()
+    cat_col = next((c for c in col_info if c[1] == "category"), None)
+    if cat_col is not None and cat_col[3] == 0:
+        # category 列 notnull=0，需要补约束：SQLite 不支持 ALTER COLUMN，用重建表法
+        conn.executescript(
+            """
+            BEGIN;
+            -- 先将空 category 行置为「其他」，避免迁移时违反 NOT NULL
+            UPDATE expenses SET category = '其他' WHERE category IS NULL OR category = '';
+            -- 创建结构完整的临时表
+            CREATE TABLE expenses_new (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                date     TEXT    NOT NULL,
+                category TEXT    NOT NULL,
+                amount   REAL    NOT NULL
+            );
+            -- 迁移全部数据
+            INSERT INTO expenses_new (id, date, category, amount)
+                SELECT id, date, category, amount FROM expenses;
+            -- 替换原表
+            DROP TABLE expenses;
+            ALTER TABLE expenses_new RENAME TO expenses;
+            COMMIT;
+            """
+        )
+
     conn.close()
 
 
@@ -80,12 +113,56 @@ def _empty_stats():
         "daily_average": 0,
         "category_expense": {},
         "daily_trend": {},
+        "daily_detail": {},
         "date_range": {"min": None, "max": None},
         "raw_table": [],
     }
 
 
-def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=None):
+def get_all_categories():
+    """
+    读取 expenses 表中所有出现过的消费类别，返回去重升序列表。
+    同时合并内置默认类别，确保下拉框总有基础选项。
+    """
+    default_cats = [
+        "早饭", "午饭", "晚饭", "夜宵",
+        "交通", "购物", "生活用品", "运动健身",
+        "游戏", "话费充值", "娱乐", "社交聚餐",
+        "学习", "旅行", "医疗", "其他"
+    ]
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT category FROM expenses ORDER BY category"
+    ).fetchall()
+    conn.close()
+    db_cats = [r["category"] for r in rows if r["category"]]
+    merged = sorted(set(default_cats) | set(db_cats))
+    return merged
+
+
+def add_expense(date: str, category: str, amount: float):
+    """
+    向 expenses 表插入一条新消费记录。
+
+    Args:
+        date: 日期字符串，格式 YYYY-MM-DD。
+        category: 消费类别。
+        amount: 消费金额（浮点数）。
+    Returns:
+        新插入行的 id。
+    """
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO expenses (date, category, amount) VALUES (?, ?, ?)",
+        (date, category, round(float(amount), 2))
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
+
+def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=None, only_category=None):
     """
     按筛选条件汇总消费数据，供前端图表与表格使用。
 
@@ -93,16 +170,18 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
     - 当 only_month 为合法 1–12：不按公历年过滤，保留所有年份中该月的记录；若再传 only_dom（1–31），
       则进一步限定为「各年中该月的号数」，用于「无年份 + 月 + 日」筛选。
     - 否则：按 start_date / end_date 字符串（YYYY-MM-DD）与「日期」列做闭区间过滤；未传则不过滤该端。
+    - only_category: 若传入则进一步按类别过滤。
 
     Args:
         start_date: 起始日期字符串，可与 end_date 单独或组合使用。
         end_date: 结束日期字符串。
         only_month: 公历月份 1–12，与 only_dom 搭配表示跨年的「月/日」筛选。
         only_dom: 公历日 1–31，仅在与 only_month 同时有效时生效。
+        only_category: 消费类别字符串，传入时仅保留该类别记录。
 
     Returns:
         dict: total_expense, daily_average（总支出/有数据的不重复日期数）,
-              category_expense, daily_trend, date_range{min,max}, raw_table（明细行列表）。
+              category_expense, daily_trend, daily_detail, date_range{min,max}, raw_table（明细行列表）。
     """
     df = get_all_expenses()
     if df.empty:
@@ -138,6 +217,9 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
         if end_date:
             df = df[df["日期"] <= end_date]
 
+    if only_category and str(only_category).strip():
+        df = df[df["类别"] == str(only_category).strip()]
+
     if df.empty:
         return _empty_stats()
 
@@ -150,6 +232,17 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
 
     daily_data = df.groupby("日期")["金额"].sum().round(2).to_dict()
     daily_data = {str(k): round(float(v), 2) for k, v in daily_data.items()}
+
+    # 每日消费明细：{ "YYYY-MM-DD": [{"类别": "吃饭", "金额": 10}, ...], ... }
+    daily_detail: dict = {}
+    for _, row in df.sort_values(["日期", "类别"]).iterrows():
+        d = str(row["日期"])
+        if d not in daily_detail:
+            daily_detail[d] = []
+        daily_detail[d].append({
+            "类别": str(row["类别"]),
+            "金额": round(float(row["金额"]), 2)
+        })
 
     dates = sorted(df["日期"].unique())
     date_min = dates[0] if dates else None
@@ -169,6 +262,7 @@ def get_statistics(start_date=None, end_date=None, only_month=None, only_dom=Non
         "daily_average": avg,
         "category_expense": category_data,
         "daily_trend": daily_data,
+        "daily_detail": daily_detail,
         "date_range": {"min": date_min, "max": date_max},
         "raw_table": table_data,
     }
@@ -241,18 +335,20 @@ def index():
 @app.route("/api/statistics")
 def get_stats():
     """
-    统计 JSON：查询参数 start_date、end_date、only_month、only_dom 传给 get_statistics；
+    统计 JSON：查询参数 start_date、end_date、only_month、only_dom、only_category 传给 get_statistics；
     额外返回 has_data 表示筛选后 raw_table 是否非空。
     """
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
     only_month = request.args.get("only_month")
     only_dom = request.args.get("only_dom")
+    only_category = request.args.get("only_category")
     stats = get_statistics(
         start_date=start_date,
         end_date=end_date,
         only_month=only_month,
         only_dom=only_dom,
+        only_category=only_category,
     )
     has_rows = len(stats.get("raw_table") or []) > 0
     return jsonify({**stats, "has_data": has_rows})
@@ -264,6 +360,105 @@ def get_dates():
     index = get_date_index()
     has_rows = expense_row_count() > 0
     return jsonify({"has_data": has_rows, "date_index": index})
+
+
+@app.route("/api/categories")
+def get_categories():
+    """返回所有已出现过的消费类别（含内置默认类别）列表。"""
+    return jsonify({"categories": get_all_categories()})
+
+
+@app.route("/api/add_expense", methods=["POST"])
+def api_add_expense():
+    """
+    新增消费记录接口。
+    请求体 JSON: { "date": "YYYY-MM-DD", "category": "类别", "amount": 12.5 }
+    返回: { "success": true, "id": <新行id> }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    date = str(data.get("date", "")).strip()
+    category = str(data.get("category", "")).strip()
+    amount = data.get("amount")
+    if not date or not category or amount is None:
+        return jsonify({"success": False, "error": "date、category、amount 均不能为空"}), 400
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            raise ValueError("金额必须大于 0")
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    new_id = add_expense(date, category, amount)
+    return jsonify({"success": True, "id": new_id})
+
+
+@app.route("/api/expenses_by_date")
+def api_expenses_by_date():
+    """
+    按日期查询该日所有消费记录（含 id 字段，供变更页使用）。
+    查询参数: date=YYYY-MM-DD
+    返回: { "records": [{id, date, category, amount}, ...] }
+    """
+    date_str = request.args.get("date", "").strip()
+    if not date_str:
+        return jsonify({"records": []})
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, date, category, amount FROM expenses WHERE date=? ORDER BY id",
+        (date_str,)
+    ).fetchall()
+    conn.close()
+    return jsonify({"records": [
+        {"id": r["id"], "date": r["date"], "category": r["category"], "amount": r["amount"]}
+        for r in rows
+    ]})
+
+
+@app.route("/api/update_expense", methods=["POST"])
+def api_update_expense():
+    """
+    更新单条消费记录。
+    请求体 JSON: { "id": 123, "date": "YYYY-MM-DD", "category": "类别", "amount": 12.5 }
+    返回: { "success": true }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    row_id = data.get("id")
+    date_val = str(data.get("date", "")).strip()
+    category = str(data.get("category", "")).strip()
+    amount = data.get("amount")
+    if not row_id or not date_val or not category or amount is None:
+        return jsonify({"success": False, "error": "id、date、category、amount 均不能为空"}), 400
+    try:
+        amount = float(amount)
+        if amount <= 0:
+            raise ValueError("金额必须大于 0")
+    except (TypeError, ValueError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    conn = get_db()
+    conn.execute(
+        "UPDATE expenses SET date=?, category=?, amount=? WHERE id=?",
+        (date_val, category, round(amount, 2), int(row_id))
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
+
+
+@app.route("/api/delete_expense", methods=["POST"])
+def api_delete_expense():
+    """
+    删除单条消费记录。
+    请求体 JSON: { "id": 123 }
+    返回: { "success": true }
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    row_id = data.get("id")
+    if not row_id:
+        return jsonify({"success": False, "error": "id 不能为空"}), 400
+    conn = get_db()
+    conn.execute("DELETE FROM expenses WHERE id=?", (int(row_id),))
+    conn.commit()
+    conn.close()
+    return jsonify({"success": True})
 
 
 if __name__ == "__main__":

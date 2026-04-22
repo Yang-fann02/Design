@@ -43,10 +43,20 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 <span>数据统计</span>
             </div>
-            <!-- 消费明细：单独大表 #pc-expense-table2，与概览页表格数据相同，便于只看病明细 -->
+            <!-- 消费明细：单独大表 #pc-expense-table2，与概览页表格数据相同，便于只看消费明细 -->
             <div class="fd-pc-sidebar__item" data-page="details">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <span>消费明细</span>
+            </div>
+            <!-- 增加消费记录：手动录入新消费，提交后自动写库并刷新统计 -->
+            <div class="fd-pc-sidebar__item" data-page="add">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                <span>增加消费记录</span>
+            </div>
+            <!-- 变更数据：按日期查询，双击行内联编辑或删除 -->
+            <div class="fd-pc-sidebar__item" data-page="edit">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                <span>变更数据</span>
             </div>
         </div>
         <!-- 侧栏右缘 4px 拖拽热区：桌面 JS 监听 mousedown/mousemove 动态改侧栏宽度与主区 margin-left（窄屏不启用） -->
@@ -151,16 +161,119 @@
                 </div>
             </div>
 
-            <!-- —— 视图三：消费明细（仅表格，表头/表体 id 带 2，与概览表结构相同便于同一套渲染函数） —— -->
+            <!-- —— 视图三：消费明细（仅表格，类别筛选下拉；表头/表体 id 带 2，与概览表结构相同） —— -->
             <div class="fd-view" id="view-details">
                 <h2 class="fd-section-title">消费明细</h2>
                 <div class="fd-card">
-                    <div class="fd-card__header"><h3>消费明细表</h3></div>
+                    <div class="fd-card__header" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <h3 style="margin:0;flex:1 1 auto;">消费明细表</h3>
+                        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                            <label class="fd-form-label" for="details-category-filter" style="margin:0;white-space:nowrap;">类别筛选</label>
+                            <select id="details-category-filter" class="fd-form-select" style="min-width:110px;">
+                                <option value="">全部类别</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="fd-table fd-table--body-cap">
                         <table>
                             <thead><tr id="pc-expense-thead2"></tr></thead>
                             <tbody id="pc-expense-table2"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- —— 视图四：增加消费记录（双列响应式，宽屏左列表单、右列留白；窄屏单列） —— -->
+            <div class="fd-view" id="view-add">
+                <h2 class="fd-section-title">增加消费记录</h2>
+                <div class="fd-add-layout">
+                    <!-- 左：表单卡片 -->
+                    <div class="fd-card fd-add-layout__form">
+                        <div class="fd-card__header"><h3>填写消费信息</h3></div>
+                        <div class="fd-card__body" style="padding:24px;">
+                            <div class="fd-add-form">
+                                <div class="fd-add-form__row">
+                                    <label class="fd-form-label" for="add-date">消费日期</label>
+                                    <input type="date" id="add-date" class="fd-form-input" />
+                                </div>
+                                <div class="fd-add-form__row">
+                                    <label class="fd-form-label" for="add-category-select">消费类别</label>
+                                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                        <select id="add-category-select" class="fd-form-select" style="flex:1;min-width:140px;">
+                                            <option value="">-- 选择类别 --</option>
+                                        </select>
+                                        <span style="font-size:12px;color:var(--color-text-secondary,#64748b);white-space:nowrap;">或手动输入：</span>
+                                        <input type="text" id="add-category-input" class="fd-form-input" placeholder="自定义类别" style="flex:1;min-width:120px;" />
+                                    </div>
+                                </div>
+                                <div class="fd-add-form__row">
+                                    <label class="fd-form-label" for="add-amount">消费金额（元）</label>
+                                    <input type="number" id="add-amount" class="fd-form-input" placeholder="例如：12.5" min="0.01" step="0.01" />
+                                </div>
+                                <div class="fd-add-form__row" id="add-msg" style="display:none;"></div>
+                                <div class="fd-add-form__row" style="margin-top:8px;">
+                                    <button type="button" id="add-submit-btn" class="fd-btn fd-btn--primary" style="width:100%;justify-content:center;padding:12px 0;font-size:15px;">
+                                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        保存消费记录
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右：填写说明卡片 -->
+                    <div class="fd-card fd-add-layout__tip">
+                        <div class="fd-card__header"><h3>填写说明</h3></div>
+                        <div class="fd-card__body" style="padding:20px 24px;">
+                            <ul style="margin:0;padding-left:18px;line-height:2;font-size:14px;color:var(--color-text-secondary,#64748b);">
+                                <li>选择或输入<strong>消费日期</strong>，格式为年/月/日。</li>
+                                <li><strong>消费类别</strong>可从下拉列表选择，也可在右侧手动输入自定义类别（两者互斥）。</li>
+                                <li><strong>消费金额</strong>须大于 0，支持小数（如 12.5）。</li>
+                                <li>点击「保存消费记录」后数据立即写入数据库，首页统计自动刷新。</li>
+                                <li>若填写有误，可前往「<strong>变更数据</strong>」页面按日期查询后修改或删除。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- —— 视图五：变更数据（全宽） —— -->
+            <div class="fd-view" id="view-edit">
+                <h2 class="fd-section-title">变更数据</h2>
+                <div class="fd-card">
+                    <div class="fd-card__header">
+                        <h3>选择日期查询记录</h3>
+                    </div>
+                    <div class="fd-card__body" style="padding:20px 24px 8px;">
+                        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                            <div style="display:flex;flex-direction:column;gap:6px;flex:0 0 220px;min-width:160px;">
+                                <label class="fd-form-label" for="edit-date">消费日期</label>
+                                <input type="date" id="edit-date" class="fd-form-input" />
+                            </div>
+                            <button type="button" id="edit-query-btn" class="fd-btn fd-btn--primary" style="height:38px;white-space:nowrap;align-self:flex-end;">
+                                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"></path></svg>
+                                查询
+                            </button>
+                            <p style="flex:1;margin:0;font-size:12px;color:var(--color-text-secondary,#64748b);align-self:flex-end;padding-bottom:2px;">
+                                双击某行可编辑该条记录；点击行末「删除」可直接删除。
+                            </p>
+                        </div>
+                    </div>
+                    <!-- 查询结果表格（自适应剩余高度） -->
+                    <div id="edit-table-wrap" style="display:none;">
+                        <div class="fd-table fd-table--body-cap fd-edit-table-scroll">
+                            <table id="edit-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:130px;">日期</th>
+                                        <th>消费类别</th>
+                                        <th style="width:130px;">金额（元）</th>
+                                        <th style="width:72px;text-align:center;">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="edit-tbody"></tbody>
+                            </table>
+                        </div>
+                        <div id="edit-table-msg" style="display:none;padding:12px 24px;font-size:13px;"></div>
                     </div>
                 </div>
             </div>
@@ -232,6 +345,8 @@
         let pcTrendChart2;
         /** 当前生效的日期筛选（确定后写入，驱动 API 查询） */
         let pcActiveFilter = { year: null, month: null, day: null, dayOfMonth: null };
+        /** 消费明细页当前类别筛选，'' 表示不筛选 */
+        let pcActiveCategory = '';
         /** 来自 /api/date_index 的 date_index，无数据时为 null */
         let pcDateIndex = null;
         /** 最近一次统计接口返回的完整对象，用于切换主题时重绘图表不重拉接口 */
@@ -264,8 +379,20 @@
             document.getElementById('pc-date-range-display').textContent = (dr.min && dr.max) ? `${dr.min} ~ ${dr.max}` : '--';
             pcInitCharts();
             const categoryData = Object.entries(data.category_expense || {}).map(([name, value]) => ({ name, value }));
-            const trendDates = Object.keys(data.daily_trend || {}).sort();
-            const trendValues = trendDates.map(d => data.daily_trend[d]);
+
+            // 趋势图原始数据（颜色在 pcGetCategoryColor 定义后再填充）
+            const dailyDetail = data.daily_detail || {};
+            const detailLabels = [];
+            const detailValues = [];
+            const sortedDates = Object.keys(dailyDetail).sort();
+            sortedDates.forEach(date => {
+                (dailyDetail[date] || []).forEach(item => {
+                    detailLabels.push(date + '\n' + item['类别']);
+                    detailValues.push(item['金额']);
+                });
+            });
+            const trendDates = detailLabels;
+            const trendValues = detailValues;
             // 图表字体、明暗色板、饼图扇区取色函数（pcPieSliceColor）、饼/折 option，四套实例共用
             const pcChartFont = '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
             const pcIsDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -310,75 +437,197 @@
                 handleBorder: '#c0cce5',
                 handleShadow: 'rgba(49, 46, 130, 0.1)'
             };
-            const pcPieByName = {
-                日常消费: pcChart.daily,
-                医疗支出: pcChart.medical,
-                娱乐消费: pcChart.entertainment,
-                游戏充值: pcChart.game
+            /**
+             * 全局颜色方案：16 种高区分度色彩，避免相近色和黑/灰色。
+             * 亮色/暗色主题均保持饱和度，深色模式下自动由 ECharts 稍微提亮。
+             */
+            const PC_CAT_COLORS = {
+                // ── 餐饮（暖橙-琥珀-玫红-深紫，色相拉开约 30°）──
+                '早饭':     '#FF8C42',   // 活力橙
+                '午饭':     '#FFBE0B',   // 明黄
+                '晚饭':     '#FF5757',   // 珊瑚红
+                '夜宵':     '#C77DFF',   // 薰衣草紫
+                // ── 出行 ──
+                '交通':     '#3BC9DB',   // 天蓝
+                // ── 购物 / 日用 ──
+                '购物':     '#20C997',   // 薄荷绿
+                '生活用品': '#F7B731',   // 金橙
+                // ── 健康 ──
+                '运动健身': '#74C69D',   // 草绿
+                '医疗':     '#F06595',   // 玫粉
+                '医疗支出': '#F06595',
+                // ── 社交 / 娱乐 ──
+                '娱乐':     '#748FFC',   // 靛紫
+                '娱乐消费': '#748FFC',
+                '游戏':     '#4ECDC4',   // 青碧
+                '游戏充值': '#4ECDC4',
+                '社交聚餐': '#FF6B9D',   // 糖果粉
+                // ── 充值 / 学习 / 旅行 ──
+                '话费充值': '#FF9F43',   // 橙黄
+                '学习':     '#7C83FD',   // 蓝紫
+                '住宿':     '#A29BFE',   // 淡紫
+                '旅行':     '#00CEC9',   // 青绿
+                // ── 兼容旧字段 ──
+                '吃饭':     '#FF8C42',
+                '餐饮':     '#FF8C42',
+                '日常消费': '#748FFC',
+                '其他':     '#ADB5BD',   // 中灰（非黑）
             };
+            // 兜底调色板（哈希取色，用于未收录的自定义类别）
+            const pcCatPalette = [
+                '#FF8C42','#FFBE0B','#FF5757','#C77DFF','#3BC9DB','#20C997',
+                '#F7B731','#74C69D','#F06595','#748FFC','#4ECDC4','#FF6B9D',
+                '#FF9F43','#7C83FD','#00CEC9','#A29BFE'
+            ];
+            /** 根据类别名称返回固定颜色 */
+            function pcGetCategoryColor(name) {
+                if (!name) return pcCatPalette[0];
+                if (PC_CAT_COLORS[name]) return PC_CAT_COLORS[name];
+                // 未收录类别：哈希到调色板
+                let h = 0;
+                for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+                return pcCatPalette[h % pcCatPalette.length];
+            }
             /** ECharts 饼图 itemStyle.color 回调：按系列项名称取色 */
             function pcPieSliceColor(params) {
                 const name = String(params.name || (params.data && params.data.name) || '');
                 if (name.includes('暂无')) return pcChart.empty;
-                if (pcPieByName[name]) return pcPieByName[name];
-                if (name.includes('日常')) return pcChart.daily;
-                if (name.includes('医疗')) return pcChart.medical;
-                if (name.includes('娱乐')) return pcChart.entertainment;
-                if (name.includes('游戏')) return pcChart.game;
-                return [pcChart.daily, pcChart.medical, pcChart.entertainment, pcChart.game, '#8b5cf6', '#38bdf8'][params.dataIndex % 6];
+                return pcGetCategoryColor(name);
             }
             const pcTipBg = pcIsDark ? 'rgba(30, 41, 59, 0.92)' : 'rgba(255, 255, 255, 0.94)';
             const pcTipBorder = pcIsDark ? 'rgba(71, 85, 105, 0.6)' : 'rgba(192, 204, 229, 0.9)';
+            // 移动端判断：只用当前可见容器（clientWidth > 0）的宽度，隐藏页面容器宽度为 0 时跳过
+            const pcPieContainer = document.getElementById('pc-category-chart');
+            const pcPieContainer2 = document.getElementById('pc-category-chart2');
+            const pcPieW1 = (pcPieContainer && pcPieContainer.clientWidth > 0) ? pcPieContainer.clientWidth : null;
+            const pcPieW2 = (pcPieContainer2 && pcPieContainer2.clientWidth > 0) ? pcPieContainer2.clientWidth : null;
+            const pcPieActiveW = pcPieW1 ?? pcPieW2 ?? window.innerWidth;
+            const pcPieIsNarrow = pcPieActiveW <= 420;
+            // PC 端：根据类别数量动态缩小饼图半径，给外侧标签留出空间（最多 16 类别）
+            const catCount = categoryData.length || 1;
+            // 类别越多半径越小：基础外径 54%，每超过 6 个减 2%，最小 42%
+            const pcPieOuterR = pcPieIsNarrow ? 48 : Math.max(42, 54 - Math.max(0, catCount - 6) * 2);
+            const pcPieInnerR = pcPieIsNarrow ? 30 : Math.round(pcPieOuterR * 0.52);
             const chartOption = {
                 textStyle: { fontFamily: pcChartFont, color: pcChart.text },
                 tooltip: {
                     trigger: 'item',
-                    formatter: '{a} <br/>{b}: ¥{c} ({d}%)',
+                    formatter: params => {
+                        const pct = Number(params.percent || 0).toFixed(1);
+                        return `<span style="font-weight:600">${params.name}</span><br/>¥${Number(params.value).toFixed(2)}&nbsp;&nbsp;${pct}%`;
+                    },
                     backgroundColor: pcTipBg,
                     borderColor: pcTipBorder,
-                    textStyle: { color: pcChart.text, fontFamily: pcChartFont }
+                    textStyle: { color: pcChart.text, fontFamily: pcChartFont, fontSize: 13 }
                 },
-                legend: { orient: 'vertical', left: 'left', textStyle: { color: pcChart.textMuted, fontFamily: pcChartFont } },
+                // 图例：PC 端左侧竖排，手机端顶部横排
+                legend: {
+                    type: 'plain',
+                    orient: pcPieIsNarrow ? 'horizontal' : 'vertical',
+                    top: pcPieIsNarrow ? 4 : 'middle',
+                    left: pcPieIsNarrow ? 'center' : '1%',
+                    itemWidth: 10,
+                    itemHeight: 10,
+                    itemGap: pcPieIsNarrow ? 8 : 9,
+                    textStyle: {
+                        color: pcChart.textMuted,
+                        fontFamily: pcChartFont,
+                        fontSize: pcPieIsNarrow ? 10 : 12,
+                        lineHeight: pcPieIsNarrow ? 14 : 18
+                    }
+                },
                 series: [{
-                    name: '消费类别', type: 'pie', radius: ['45%', '70%'], center: ['50%', '50%'],
+                    name: '消费类别',
+                    type: 'pie',
+                    // PC 端：根据类别数量动态调整半径；移动端固定小半径并下移饼心
+                    radius: [`${pcPieInnerR}%`, `${pcPieOuterR}%`],
+                    center: pcPieIsNarrow ? ['50%', '65%'] : ['63%', '52%'],
                     data: categoryData.length ? categoryData : [{ name: '暂无数据', value: 0 }],
-                    label: { color: pcChart.text, fontFamily: pcChartFont, fontWeight: 500 },
-                    labelLine: { lineStyle: { color: pcChart.lineMuted, width: 1 } },
+                    label: {
+                        show: true,
+                        position: 'outside',
+                        color: pcChart.text,
+                        fontFamily: pcChartFont,
+                        fontSize: pcPieIsNarrow ? 9 : 11,
+                        fontWeight: 600,
+                        formatter: params => `${Number(params.percent).toFixed(1)}%`,
+                        hideOverlap: true,
+                        overflow: 'truncate'
+                    },
+                    labelLine: {
+                        show: true,
+                        length: pcPieIsNarrow ? 5 : 10,
+                        length2: pcPieIsNarrow ? 6 : 14,
+                        smooth: 0.4,
+                        lineStyle: { color: pcChart.lineMuted, width: 1 }
+                    },
+                    labelLayout: { hideOverlap: true },
                     emphasis: {
+                        scale: true,
+                        scaleSize: 6,
+                        label: {
+                            show: true,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            formatter: params =>
+                                `${params.name}\n${Number(params.percent).toFixed(1)}%`,
+                            color: pcChart.text,
+                            fontFamily: pcChartFont
+                        },
                         itemStyle: {
-                            shadowBlur: 20,
+                            shadowBlur: 18,
                             shadowOffsetY: 4,
-                            shadowColor: 'rgba(49, 46, 130, 0.14)'
+                            shadowColor: 'rgba(49,46,130,0.18)'
                         }
                     },
                     itemStyle: {
                         color: (params) => pcPieSliceColor(params),
-                        borderRadius: 5,
+                        borderRadius: 4,
                         borderColor: pcChart.pieBorder,
                         borderWidth: 2
                     }
                 }]
             };
+            // 趋势图改为柱状图，每条记录单独显示，颜色按类别区分
+            // detailColors 在此处计算，确保 pcGetCategoryColor 与 pcChart 已就绪
+            const detailColors = detailLabels.map(label => {
+                const cat = label.includes('\n') ? label.split('\n')[1] : '';
+                return pcGetCategoryColor(cat);
+            });
+            const trendBarData = detailValues.map((v, i) => ({
+                value: v,
+                itemStyle: { color: detailColors[i], borderRadius: [3, 3, 0, 0] }
+            }));
+            // 移动端柱图：容器仅 280px，需要减小底部留白和滑块高度
+            const pcTrendIsNarrow = window.innerWidth <= 768;
             const trendOption = {
                 textStyle: { fontFamily: pcChartFont, color: pcChart.text },
                 tooltip: {
                     trigger: 'axis',
-                    formatter: params => params[0] ? `${params[0].name}<br/>消费金额: ¥${Number(params[0].value).toFixed(0)}` : '',
+                    formatter: params => {
+                        if (!params[0]) return '';
+                        const label = String(params[0].name || '').replace('\n', ' · ');
+                        return `${label}<br/>金额: ¥${Number(params[0].value).toFixed(2)}`;
+                    },
                     backgroundColor: pcTipBg,
                     borderColor: pcTipBorder,
                     textStyle: { color: pcChart.text, fontFamily: pcChartFont }
                 },
-                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                grid: {
+                    left: '3%', right: '4%',
+                    bottom: pcTrendIsNarrow ? '12%' : '15%',
+                    containLabel: true
+                },
                 dataZoom: [
                     {
                         type: 'slider',
                         show: true,
                         xAxisIndex: [0],
                         start: 0,
-                        end: 100,
-                        bottom: 8,
-                        height: 22,
-                        borderRadius: 11,
+                        end: Math.min(100, detailLabels.length > 0 ? Math.ceil(60 / detailLabels.length * 100) : 100),
+                        bottom: pcTrendIsNarrow ? 4 : 8,
+                        height: pcTrendIsNarrow ? 18 : 22,
+                        borderRadius: 9,
                         borderColor: 'transparent',
                         backgroundColor: pcChart.zoomTrack,
                         fillerColor: pcChart.zoomFill,
@@ -397,11 +646,22 @@
                 ],
                 xAxis: {
                     type: 'category',
-                    boundaryGap: false,
+                    boundaryGap: true,
                     data: trendDates,
                     axisLine: { lineStyle: { color: pcChart.axisLine } },
                     axisTick: { show: false },
-                    axisLabel: { rotate: 45, color: pcChart.textMuted, fontFamily: pcChartFont }
+                    axisLabel: {
+                        // 移动端减小旋转角度，节省纵向高度
+                        rotate: pcTrendIsNarrow ? 30 : 45,
+                        color: pcChart.textMuted,
+                        fontFamily: pcChartFont,
+                        fontSize: pcTrendIsNarrow ? 10 : 11,
+                        formatter: val => {
+                            const s = String(val || '').split('\n')[0];
+                            // 移动端截短日期（MM-DD）节省空间
+                            return pcTrendIsNarrow ? s.slice(-5) : s;
+                        }
+                    }
                 },
                 yAxis: {
                     type: 'value',
@@ -412,23 +672,10 @@
                 },
                 series: [{
                     name: '消费金额',
-                    type: 'line',
-                    data: trendValues,
-                    smooth: true,
-                    showSymbol: 'auto',
-                    symbolSize: 6,
-                    lineStyle: { color: pcChart.trend, width: 2.5, cap: 'round', join: 'round' },
-                    itemStyle: {
-                        color: pcChart.symbolFill,
-                        borderColor: pcChart.trend,
-                        borderWidth: 2
-                    },
-                    areaStyle: {
-                        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                            { offset: 0, color: pcChart.trendFill0 },
-                            { offset: 1, color: pcChart.trendFill1 }
-                        ])
-                    }
+                    type: 'bar',
+                    data: trendBarData.length ? trendBarData : [{ value: 0 }],
+                    barMaxWidth: 32,
+                    label: { show: false }
                 }]
             };
             pcCategoryChart.setOption(chartOption, true);
@@ -459,11 +706,56 @@
             tableBody.innerHTML = '';
             const tableBody2 = document.getElementById('pc-expense-table2');
             tableBody2.innerHTML = '';
-            (data.raw_table || []).forEach(row => {
+            const rawTable = data.raw_table || [];
+            rawTable.forEach(row => {
                 tableBody.appendChild(makeRow(row));
-                tableBody2.appendChild(makeRow(row));
             });
+            pcRenderFilteredTable2(rawTable);
+            // 更新明细页类别下拉选项（根据当前数据动态填充）
+            pcFillDetailsCategoryFilter(rawTable);
             document.querySelectorAll('.fd-table--body-cap').forEach((el) => { el.scrollTop = 0; });
+        }
+
+        /**
+         * 渲染消费明细页表格 table2，按 pcActiveCategory 过滤。
+         * @param {Array} rawTable - data.raw_table 数组
+         */
+        function pcRenderFilteredTable2(rawTable) {
+            const tableBody2 = document.getElementById('pc-expense-table2');
+            tableBody2.innerHTML = '';
+            const rows = pcActiveCategory
+                ? rawTable.filter(r => r['类别'] === pcActiveCategory)
+                : rawTable;
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                ['日期', '类别', '金额'].forEach(key => {
+                    const td = document.createElement('td');
+                    let val = row[key] != null ? String(row[key]) : '';
+                    if (key === '金额' && val && val !== 'nan') val = '¥' + val;
+                    td.textContent = val === 'nan' ? '' : val;
+                    tr.appendChild(td);
+                });
+                tableBody2.appendChild(tr);
+            });
+        }
+
+        /**
+         * 填充消费明细页类别下拉，选项来自当前 raw_table 中实际出现的类别。
+         * @param {Array} rawTable
+         */
+        function pcFillDetailsCategoryFilter(rawTable) {
+            const sel = document.getElementById('details-category-filter');
+            const prev = sel.value;
+            const cats = [...new Set(rawTable.map(r => r['类别']).filter(Boolean))].sort();
+            sel.innerHTML = '<option value="">全部类别</option>';
+            cats.forEach(c => {
+                const opt = new Option(c, c);
+                sel.appendChild(opt);
+            });
+            sel.value = cats.includes(prev) ? prev : '';
+            if (sel.value !== prev) {
+                pcActiveCategory = '';
+            }
         }
 
         /** 主题切换后：用缓存数据重绘图表（有缓存时）否则重新请求统计 */
@@ -529,13 +821,17 @@
         /** 拼接当前筛选下的 /api/statistics 完整 URL（含查询串） */
         function pcBuildStatisticsUrl() {
             const range = pcBuildRangeFromFilter();
-            if (!range) return '/api/statistics';
-            if (range.only_month != null) {
-                const p = new URLSearchParams({ only_month: String(range.only_month) });
-                if (range.only_dom != null) p.set('only_dom', String(range.only_dom));
-                return '/api/statistics?' + p.toString();
+            const p = new URLSearchParams();
+            if (range) {
+                if (range.only_month != null) {
+                    p.set('only_month', String(range.only_month));
+                    if (range.only_dom != null) p.set('only_dom', String(range.only_dom));
+                } else {
+                    p.set('start_date', range.start);
+                    p.set('end_date', range.end);
+                }
             }
-            return '/api/statistics?' + new URLSearchParams({ start_date: range.start, end_date: range.end });
+            return '/api/statistics' + (p.toString() ? '?' + p.toString() : '');
         }
 
         /** 请求统计接口并用返回结果刷新界面 */
@@ -799,7 +1095,7 @@
             pcUpdateDateHint();
             pcLoadStatistics();
         };
-        const pcPageTitleMap = { overview: '数据概览', statistics: '数据统计', details: '消费明细' };
+        const pcPageTitleMap = { overview: '数据概览', statistics: '数据统计', details: '消费明细', add: '增加消费记录', edit: '变更数据' };
         const pcSidebar = document.querySelector('.fd-pc-layout__sidebar');
 
         /** 侧栏菜单：切换 #view-* 与顶栏标题；重复点当前项时播放强调动画；窄屏下自动收起抽屉 */
@@ -811,7 +1107,6 @@
                     void this.offsetWidth;
                     this.classList.add('fd-sidebar-item--pulse');
                     const el = this;
-                    /** 侧栏脉冲动画结束一次后移除类，避免残留 */
                     function onPulseEnd(e) {
                         if (e.animationName !== 'fd-sidebar-item-pulse') return;
                         el.classList.remove('fd-sidebar-item--pulse');
@@ -825,7 +1120,11 @@
                 this.classList.add('active');
                 document.querySelectorAll('.fd-view').forEach(s => s.classList.remove('active'));
                 document.getElementById(`view-${page}`).classList.add('active');
-                document.getElementById('page-title').textContent = pcPageTitleMap[page];
+                document.getElementById('page-title').textContent = pcPageTitleMap[page] || page;
+                // 切换到「增加消费记录」页时加载最新类别
+                if (page === 'add') pcLoadCategoriesForAddForm();
+                // 切换到「变更数据」页时初始化默认日期为今天
+                if (page === 'edit') pcInitEditPage();
                 setTimeout(() => {
                     pcCategoryChart && pcCategoryChart.resize();
                     pcTrendChart && pcTrendChart.resize();
@@ -835,6 +1134,12 @@
                 if (window.innerWidth <= 768) mphoneToggleSidebar();
                 window.scrollTo(0, 0);
             });
+        });
+
+        // 消费明细页类别筛选下拉联动
+        document.getElementById('details-category-filter').addEventListener('change', function() {
+            pcActiveCategory = this.value;
+            if (pcLastStatsData) pcRenderFilteredTable2(pcLastStatsData.raw_table || []);
         });
         const mphoneHamburger = document.getElementById('mphone-hamburger');
         const mphoneOverlay = document.getElementById('mphone-sidebar-overlay');
@@ -920,21 +1225,388 @@
                 document.body.style.userSelect = '';
             }
         });
+        let pcResizeThrottle = null;
         window.addEventListener('resize', () => {
             if (window.innerWidth <= 768) {
                 pcSidebar.style.width = '';
                 pcMainContent.style.marginLeft = '';
                 pcMainContent.style.width = '';
-                pcResizeAllCharts();
-                return;
-            }
-            const maxWidth = pcGetSidebarMaxWidth();
-            if (pcCurrentWidth > maxWidth) {
-                pcApplyResizeWidth(maxWidth);
             } else {
-                pcResizeAllCharts();
+                const maxWidth = pcGetSidebarMaxWidth();
+                if (pcCurrentWidth > maxWidth) pcApplyResizeWidth(maxWidth);
             }
+            // 节流：窗口停止变化 150ms 后重绘图表（含饼图布局响应）
+            clearTimeout(pcResizeThrottle);
+            pcResizeThrottle = setTimeout(() => {
+                pcResizeAllCharts();
+                // 宽度跨越移动端临界时重绘饼图 option 以更新布局参数
+                if (pcLastStatsData) {
+                    const el1 = document.getElementById('pc-category-chart');
+                    const el2 = document.getElementById('pc-category-chart2');
+                    const rw1 = (el1 && el1.clientWidth > 0) ? el1.clientWidth : null;
+                    const rw2 = (el2 && el2.clientWidth > 0) ? el2.clientWidth : null;
+                    const narrow = (rw1 ?? rw2 ?? window.innerWidth) <= 420;
+                    if (narrow !== pcPieWasNarrow) {
+                        pcPieWasNarrow = narrow;
+                        pcRenderUI(pcLastStatsData);
+                    }
+                }
+            }, 150);
         });
+        let pcPieWasNarrow = false;
+        /** 加载所有类别到「增加消费记录」表单的下拉框 */
+        function pcLoadCategoriesForAddForm() {
+            fetch('/api/categories').then(r => r.json()).then(res => {
+                const sel = document.getElementById('add-category-select');
+                sel.innerHTML = '<option value="">-- 选择类别 --</option>';
+                (res.categories || []).forEach(c => sel.appendChild(new Option(c, c)));
+            }).catch(() => {});
+        }
+
+        /** 显示增加记录表单的结果信息 */
+        function pcShowAddMsg(msg, isError) {
+            const el = document.getElementById('add-msg');
+            el.style.display = '';
+            el.style.padding = '10px 14px';
+            el.style.borderRadius = '8px';
+            el.style.fontSize = '14px';
+            el.style.fontWeight = '500';
+            if (isError) {
+                el.style.background = 'var(--fd-danger-bg, #fef2f2)';
+                el.style.color = 'var(--fd-danger, #dc2626)';
+                el.style.border = '1px solid var(--fd-danger-border, #fca5a5)';
+            } else {
+                el.style.background = 'var(--fd-success-bg, #f0fdf4)';
+                el.style.color = 'var(--fd-success, #16a34a)';
+                el.style.border = '1px solid var(--fd-success-border, #86efac)';
+            }
+            el.textContent = msg;
+            if (!isError) setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        document.getElementById('add-submit-btn').addEventListener('click', function() {
+            const dateVal = document.getElementById('add-date').value.trim();
+            const selVal = document.getElementById('add-category-select').value.trim();
+            const inputVal = document.getElementById('add-category-input').value.trim();
+            const category = inputVal || selVal;
+            const amountVal = document.getElementById('add-amount').value.trim();
+
+            if (!dateVal) { pcShowAddMsg('请选择消费日期', true); return; }
+            if (!category) { pcShowAddMsg('请选择或输入消费类别', true); return; }
+            if (!amountVal || isNaN(Number(amountVal)) || Number(amountVal) <= 0) {
+                pcShowAddMsg('请输入有效的消费金额（大于 0）', true); return;
+            }
+
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = '保存中...';
+
+            fetch('/api/add_expense', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: dateVal, category: category, amount: Number(amountVal) })
+            }).then(r => r.json()).then(res => {
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>保存消费记录';
+                if (res.success) {
+                    pcShowAddMsg('✓ 保存成功！数据已写入数据库', false);
+                    document.getElementById('add-date').value = '';
+                    document.getElementById('add-category-select').value = '';
+                    document.getElementById('add-category-input').value = '';
+                    document.getElementById('add-amount').value = '';
+                    // 刷新统计数据与日期索引
+                    pcLoadStatistics();
+                    pcLoadDateIndex();
+                    pcLoadCategoriesForAddForm();
+                } else {
+                    pcShowAddMsg('保存失败：' + (res.error || '未知错误'), true);
+                }
+            }).catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right:6px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>保存消费记录';
+                pcShowAddMsg('网络错误，请重试', true);
+            });
+        });
+
+        // 类别下拉与手动输入互斥：选了下拉就清空手动输入，反之亦然
+        document.getElementById('add-category-select').addEventListener('change', function() {
+            if (this.value) document.getElementById('add-category-input').value = '';
+        });
+        document.getElementById('add-category-input').addEventListener('input', function() {
+            if (this.value) document.getElementById('add-category-select').value = '';
+        });
+
+        // ═══════════════════════════════════════════════════════════
+        //  变更数据页逻辑
+        // ═══════════════════════════════════════════════════════════
+
+        /** 变更页：当前查询日期 */
+        let editCurrentDate = '';
+        /** 变更页：当前数据（含 id），用于刷新对比 */
+        let editCurrentRecords = [];
+
+        /** 初始化变更页：默认填今天日期，清空表格 */
+        function pcInitEditPage() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const inp = document.getElementById('edit-date');
+            if (inp && !inp.value) inp.value = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('edit-table-wrap').style.display = 'none';
+            document.getElementById('edit-tbody').innerHTML = '';
+        }
+
+        /** 显示变更页消息条 */
+        function pcShowEditMsg(msg, isError) {
+            const el = document.getElementById('edit-table-msg');
+            el.style.display = '';
+            el.style.padding = '10px 24px';
+            el.style.fontSize = '13px';
+            el.style.fontWeight = '500';
+            el.style.borderTop = '1px solid var(--color-border-light)';
+            if (isError) {
+                el.style.color = '#dc2626';
+                el.style.background = '#fef2f2';
+            } else {
+                el.style.color = '#16a34a';
+                el.style.background = '#f0fdf4';
+            }
+            el.textContent = msg;
+            if (!isError) setTimeout(() => { el.style.display = 'none'; }, 2500);
+        }
+
+        /**
+         * 渲染变更页表格行。
+         * 正常态：日期 | 类别 | ¥金额 | [删除按钮]
+         * 编辑态（双击后）：date input | category select+input | amount input | [保存][取消]
+         */
+        function pcRenderEditRow(record, tbody) {
+            const tr = document.createElement('tr');
+            tr.dataset.id = record.id;
+            tr.style.cursor = 'pointer';
+            tr.title = '双击编辑此行';
+
+            const tdDate = document.createElement('td');
+            tdDate.textContent = record.date;
+
+            const tdCat = document.createElement('td');
+            tdCat.textContent = record.category;
+
+            const tdAmt = document.createElement('td');
+            tdAmt.textContent = '¥' + Number(record.amount).toFixed(2);
+
+            const tdOp = document.createElement('td');
+            tdOp.style.textAlign = 'center';
+            tdOp.style.whiteSpace = 'nowrap';
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.textContent = '删除';
+            delBtn.className = 'fd-btn fd-btn--outline';
+            delBtn.style.cssText = 'padding:3px 10px;font-size:12px;color:#dc2626;border-color:#fca5a5;';
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                pcDeleteRecord(record.id, tr);
+            };
+            tdOp.appendChild(delBtn);
+
+            tr.append(tdDate, tdCat, tdAmt, tdOp);
+
+            // 双击进入编辑模式
+            tr.addEventListener('dblclick', () => pcEnterEditMode(tr, record));
+            tbody.appendChild(tr);
+        }
+
+        /** 双击后将该行切换为编辑模式 */
+        function pcEnterEditMode(tr, record) {
+            if (tr.dataset.editing === '1') return;
+            tr.dataset.editing = '1';
+            tr.title = '';
+            tr.style.background = 'var(--glass-table-row-hover, rgba(111,118,216,0.06))';
+
+            // 日期输入
+            const inpDate = document.createElement('input');
+            inpDate.type = 'date';
+            inpDate.value = record.date;
+            inpDate.className = 'fd-form-input';
+            inpDate.style.cssText = 'padding:4px 8px;font-size:13px;min-width:120px;';
+
+            // 类别：下拉 + 自定义输入
+            const catWrap = document.createElement('div');
+            catWrap.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+            const selCat = document.createElement('select');
+            selCat.className = 'fd-form-select';
+            selCat.style.cssText = 'padding:4px 8px;font-size:13px;min-width:90px;flex:1;';
+            selCat.innerHTML = '<option value="">自定义</option>';
+            (pcLastCategoryList || []).forEach(c => {
+                const o = new Option(c, c);
+                if (c === record.category) o.selected = true;
+                selCat.appendChild(o);
+            });
+            const inpCat = document.createElement('input');
+            inpCat.type = 'text';
+            inpCat.className = 'fd-form-input';
+            inpCat.style.cssText = 'padding:4px 8px;font-size:13px;min-width:80px;flex:1;';
+            inpCat.placeholder = '自定义类别';
+            // 若当前类别在列表里则不显示手动输入
+            const inList = (pcLastCategoryList || []).includes(record.category);
+            if (!inList) inpCat.value = record.category;
+            selCat.onchange = () => { if (selCat.value) inpCat.value = ''; };
+            inpCat.oninput = () => { if (inpCat.value) selCat.value = ''; };
+            catWrap.append(selCat, inpCat);
+
+            // 金额输入
+            const inpAmt = document.createElement('input');
+            inpAmt.type = 'number';
+            inpAmt.value = record.amount;
+            inpAmt.min = '0.01';
+            inpAmt.step = '0.01';
+            inpAmt.className = 'fd-form-input';
+            inpAmt.style.cssText = 'padding:4px 8px;font-size:13px;min-width:80px;';
+
+            // 操作按钮
+            const opWrap = document.createElement('div');
+            opWrap.style.cssText = 'display:flex;gap:4px;justify-content:center;';
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'button'; saveBtn.textContent = '保存';
+            saveBtn.className = 'fd-btn fd-btn--primary';
+            saveBtn.style.cssText = 'padding:3px 10px;font-size:12px;';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button'; cancelBtn.textContent = '取消';
+            cancelBtn.className = 'fd-btn fd-btn--outline';
+            cancelBtn.style.cssText = 'padding:3px 10px;font-size:12px;';
+
+            // 替换单元格内容
+            tr.cells[0].innerHTML = ''; tr.cells[0].appendChild(inpDate);
+            tr.cells[1].innerHTML = ''; tr.cells[1].appendChild(catWrap);
+            tr.cells[2].innerHTML = ''; tr.cells[2].appendChild(inpAmt);
+            tr.cells[3].innerHTML = ''; opWrap.append(saveBtn, cancelBtn); tr.cells[3].appendChild(opWrap);
+
+            inpDate.focus();
+
+            saveBtn.onclick = () => {
+                const newDate = inpDate.value.trim();
+                const newCat  = (inpCat.value.trim() || selCat.value).trim();
+                const newAmt  = parseFloat(inpAmt.value);
+                if (!newDate) { pcShowEditMsg('日期不能为空', true); return; }
+                if (!newCat)  { pcShowEditMsg('类别不能为空', true); return; }
+                if (isNaN(newAmt) || newAmt <= 0) { pcShowEditMsg('请填写有效金额（大于 0）', true); return; }
+                saveBtn.disabled = true; saveBtn.textContent = '保存中…';
+                fetch('/api/update_expense', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: record.id, date: newDate, category: newCat, amount: newAmt})
+                }).then(r => r.json()).then(res => {
+                    if (res.success) {
+                        // 更新本地记录并重绘该行
+                        record.date = newDate; record.category = newCat; record.amount = newAmt;
+                        delete tr.dataset.editing;
+                        tr.style.background = '';
+                        tr.cells[0].innerHTML = ''; tr.cells[0].textContent = newDate;
+                        tr.cells[1].innerHTML = ''; tr.cells[1].textContent = newCat;
+                        tr.cells[2].innerHTML = ''; tr.cells[2].textContent = '¥' + newAmt.toFixed(2);
+                        tr.cells[3].innerHTML = '';
+                        const delBtn2 = document.createElement('button');
+                        delBtn2.type='button'; delBtn2.textContent='删除';
+                        delBtn2.className='fd-btn fd-btn--outline';
+                        delBtn2.style.cssText='padding:3px 10px;font-size:12px;color:#dc2626;border-color:#fca5a5;';
+                        delBtn2.onclick = (e) => { e.stopPropagation(); pcDeleteRecord(record.id, tr); };
+                        tr.cells[3].appendChild(delBtn2);
+                        tr.title = '双击编辑此行';
+                        tr.addEventListener('dblclick', () => pcEnterEditMode(tr, record));
+                        pcShowEditMsg('已保存', false);
+                        // 刷新全局统计图表
+                        pcLoadStatistics(); pcLoadDateIndex();
+                    } else {
+                        saveBtn.disabled = false; saveBtn.textContent = '保存';
+                        pcShowEditMsg('保存失败：' + (res.error || ''), true);
+                    }
+                }).catch(() => {
+                    saveBtn.disabled = false; saveBtn.textContent = '保存';
+                    pcShowEditMsg('网络错误，请重试', true);
+                });
+            };
+
+            cancelBtn.onclick = () => {
+                delete tr.dataset.editing;
+                tr.style.background = '';
+                tr.cells[0].innerHTML = ''; tr.cells[0].textContent = record.date;
+                tr.cells[1].innerHTML = ''; tr.cells[1].textContent = record.category;
+                tr.cells[2].innerHTML = ''; tr.cells[2].textContent = '¥' + Number(record.amount).toFixed(2);
+                tr.cells[3].innerHTML = '';
+                const delBtn3 = document.createElement('button');
+                delBtn3.type='button'; delBtn3.textContent='删除';
+                delBtn3.className='fd-btn fd-btn--outline';
+                delBtn3.style.cssText='padding:3px 10px;font-size:12px;color:#dc2626;border-color:#fca5a5;';
+                delBtn3.onclick = (e) => { e.stopPropagation(); pcDeleteRecord(record.id, tr); };
+                tr.cells[3].appendChild(delBtn3);
+                tr.title = '双击编辑此行';
+                tr.addEventListener('dblclick', () => pcEnterEditMode(tr, record));
+            };
+        }
+
+        /** 删除单条记录：确认后请求 API，成功则移除该行并刷新统计 */
+        function pcDeleteRecord(id, tr) {
+            if (!confirm('确认删除这条消费记录？此操作不可恢复。')) return;
+            fetch('/api/delete_expense', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: id})
+            }).then(r => r.json()).then(res => {
+                if (res.success) {
+                    tr.remove();
+                    pcShowEditMsg('已删除', false);
+                    pcLoadStatistics(); pcLoadDateIndex();
+                    // 若表格已空则提示
+                    const tbody = document.getElementById('edit-tbody');
+                    if (!tbody.rows.length) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-secondary);padding:24px;">该日期暂无记录</td></tr>';
+                    }
+                } else {
+                    pcShowEditMsg('删除失败：' + (res.error || ''), true);
+                }
+            }).catch(() => pcShowEditMsg('网络错误，请重试', true));
+        }
+
+        /** 缓存最新类别列表，供编辑模式下拉使用 */
+        let pcLastCategoryList = [];
+        fetch('/api/categories').then(r => r.json()).then(res => { pcLastCategoryList = res.categories || []; }).catch(() => {});
+
+        /** 查询按钮：拉取该日期所有记录并渲染表格 */
+        document.getElementById('edit-query-btn').addEventListener('click', function() {
+            const dateVal = document.getElementById('edit-date').value.trim();
+            if (!dateVal) { alert('请先选择日期'); return; }
+            editCurrentDate = dateVal;
+            const btn = this;
+            btn.disabled = true; btn.textContent = '查询中…';
+            fetch('/api/expenses_by_date?date=' + encodeURIComponent(dateVal))
+                .then(r => r.json()).then(res => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"></path></svg> 查询';
+                    editCurrentRecords = res.records || [];
+                    const tbody = document.getElementById('edit-tbody');
+                    tbody.innerHTML = '';
+                    document.getElementById('edit-table-msg').style.display = 'none';
+                    document.getElementById('edit-table-wrap').style.display = '';
+                    if (!editCurrentRecords.length) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-secondary);padding:24px;">该日期暂无记录</td></tr>';
+                    } else {
+                        editCurrentRecords.forEach(r => pcRenderEditRow(r, tbody));
+                    }
+                    // 同时刷新类别缓存
+                    fetch('/api/categories').then(r => r.json()).then(res2 => { pcLastCategoryList = res2.categories || []; }).catch(() => {});
+                }).catch(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"></path></svg> 查询';
+                    pcShowEditMsg('查询失败，请重试', true);
+                });
+        });
+
+        // Enter 键触发查询
+        document.getElementById('edit-date').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') document.getElementById('edit-query-btn').click();
+        });
+
         /** 页面加载：同步主题开关按钮状态并绑定点击 */
         (function pcInitThemeToggle() {
             const btn = document.getElementById('pc-theme-toggle');
@@ -945,6 +1617,16 @@
                 btn.setAttribute('aria-label', dark ? '当前为暗色主题，点击切换为明亮主题' : '当前为明亮主题，点击切换为暗色主题');
                 btn.addEventListener('click', pcToggleTheme);
             }
+        })();
+        // 初始化增加表单默认日期为今天
+        (function pcInitAddForm() {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const dateInput = document.getElementById('add-date');
+            if (dateInput) dateInput.value = `${yyyy}-${mm}-${dd}`;
+            pcLoadCategoriesForAddForm();
         })();
         pcLoadStatistics();
         pcLoadDateIndex();

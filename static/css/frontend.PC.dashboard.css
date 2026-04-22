@@ -119,6 +119,12 @@
     height: 350px;
 }
 
+/* 饼图容器：标签外置需要足够高度，避免上下截断 */
+#pc-category-chart,
+#pc-category-chart2 {
+    height: 420px;
+}
+
 /* =========================
    表格
 ========================= */
@@ -190,4 +196,81 @@ tr:hover td {
     tr:hover td {
         background: var(--color-border-light);
     }
+}
+
+/* =========================
+   增加消费记录 — 双列自适应布局
+========================= */
+/* 外层网格：左列表单 + 右列说明，宽屏并排，窄屏单列 */
+.fd-add-layout {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(260px, 1fr);
+    gap: 20px;
+    align-items: start;
+}
+
+/* 左侧表单卡片：撑满格子 */
+.fd-add-layout__form {
+    width: 100%;
+}
+
+/* 右侧说明卡片：撑满格子 */
+.fd-add-layout__tip {
+    width: 100%;
+}
+
+/* 窄屏（≤720px）退回单列 */
+@media (max-width: 720px) {
+    .fd-add-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.fd-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.fd-add-form__row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* =========================
+   变更数据 — 表格自适应高度
+========================= */
+/* 表格滚动容器：最大高度为视口高度减去顶栏、卡片头等固定部分 */
+.fd-edit-table-scroll {
+    max-height: calc(100vh - 320px);
+    min-height: 200px;
+    overflow-y: auto;
+}
+
+/* =========================
+   通用表单控件
+========================= */
+.fd-form-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+    background: var(--glass-card-bg, #fff);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--duration-fast) var(--ease-smooth),
+                box-shadow var(--duration-fast) var(--ease-smooth);
+}
+
+.fd-form-input:focus {
+    border-color: var(--color-primary, #6f76d8);
+    box-shadow: 0 0 0 3px rgba(111, 118, 216, 0.15);
+}
+
+.fd-form-input::placeholder {
+    color: var(--color-text-muted, #94a3b8);
 }

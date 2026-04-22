@@ -1,4 +1,17 @@
-# Web 框架
-flask>=2.0.0
-# 统计与分组聚合
-pandas>=1.3.0
+# ── Web 框架 ──────────────────────────────────────────
+# Flask：路由、模板渲染（Jinja2）、静态文件服务
+flask>=2.3.0
+
+# ── 数据处理与统计 ──────────────────────────────────────
+# pandas：分组聚合、日期转换、DataFrame 操作
+pandas>=2.0.0
+
+# ── 运行时依赖（间接，通常随 Flask / pandas 自动安装）──────
+# Werkzeug：Flask 底层 WSGI 工具库
+werkzeug>=2.3.0
+
+# Jinja2：Flask 模板引擎
+jinja2>=3.1.0
+
+# numpy：pandas 数值计算后端
+numpy>=1.24.0

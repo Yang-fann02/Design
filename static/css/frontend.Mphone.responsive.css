@@ -152,6 +152,12 @@
         height: 280px;
     }
 
+    /* 移动端饼图：标签外置 + 顶部图例，需要更多空间 */
+    #pc-category-chart,
+    #pc-category-chart2 {
+        height: 420px;
+    }
+
     table {
         font-size: 12px;
     }
