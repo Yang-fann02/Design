@@ -31,6 +31,7 @@
 - **浮点存金额**：`amount` 以 `REAL` 存储，写入前统一 `round(float, 2)` 保留两位小数，避免精度漂移
 - **自增主键**：`id` 使用 `INTEGER PRIMARY KEY AUTOINCREMENT`，全局唯一且单调递增，便于分页与关联扩展
 - **NOT NULL 全覆盖**：所有业务字段均为 `NOT NULL`，防止空值污染统计结果
+- **与 AI 功能的关系**：内置 AI 分析仅通过应用代码**只读**查询 `expenses`（经 `get_all_expenses()` 等路径聚合），**不新增数据库表**、不向库中写入对话内容或密钥；AI 服务凭证由仓库外的 `ai_api_secrets.json` 或环境变量提供，与 SQLite 文件相互独立
 
 ---
 
@@ -438,6 +439,7 @@ sqlite3 student_expense_record.db \
 |-------------|---------|------|
 | v1.0 初始版本 | 创建 `expenses` 表，字段：`id, date, category, amount` | 初始建表，`category` 无 NOT NULL 约束 |
 | v1.1 迁移补丁 | 为 `category` 补加 `NOT NULL` 约束 | 通过"重建表 + 数据迁移"方式完成，空值自动填充为"其他"；`init_db()` 自动检测并执行，无需手动操作 |
+| — | （应用层）AI 消费助手 | 不修改 `expenses` 表结构；仅只读消费数据用于上下文摘要 |
 
 ---
 

@@ -1,3 +1,6 @@
+# AI 密钥本地配置（勿提交真实密钥）
+ai_api_secrets.json
+
 # Python 字节码与缓存目录（勿提交）
 __pycache__/
 *.py[cod]

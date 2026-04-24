@@ -1631,5 +1631,314 @@
         pcLoadStatistics();
         pcLoadDateIndex();
     </script>
+
+    <!-- ========== AI 聊天入口：右下角悬浮按钮 + 对话面板 ========== -->
+    <!-- 悬浮触发按钮 -->
+    <button class="fd-ai-fab" id="ai-fab-btn" aria-label="打开AI助手">
+        <svg class="fd-ai-fab__icon fd-ai-fab__icon--open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2C6.477 2 2 6.253 2 11.5c0 2.305.87 4.41 2.306 6.032L3 21l3.651-1.17A10.01 10.01 0 0012 21c5.523 0 10-4.253 10-9.5S17.523 2 12 2z"/>
+            <circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+            <circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+        </svg>
+        <svg class="fd-ai-fab__icon fd-ai-fab__icon--close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    </button>
+
+    <!-- 聊天面板 -->
+    <div class="fd-ai-panel" id="ai-panel" role="dialog" aria-label="AI消费助手" aria-hidden="true">
+        <!-- 拖拽调整大小手柄 -->
+        <div class="fd-ai-panel__resize-handle fd-ai-panel__resize-handle--left" data-resize="left"></div>
+        <div class="fd-ai-panel__resize-handle fd-ai-panel__resize-handle--top" data-resize="top"></div>
+        <div class="fd-ai-panel__resize-handle fd-ai-panel__resize-handle--top-left" data-resize="top-left"></div>
+        <!-- 面板顶栏 -->
+        <div class="fd-ai-panel__header">
+            <div class="fd-ai-panel__header-info">
+                <span class="fd-ai-panel__avatar" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C6.477 2 2 6.253 2 11.5c0 2.305.87 4.41 2.306 6.032L3 21l3.651-1.17A10.01 10.01 0 0012 21c5.523 0 10-4.253 10-9.5S17.523 2 12 2z"/>
+                        <circle cx="8.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="12" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="15.5" cy="11.5" r="1" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
+                <div>
+                    <div class="fd-ai-panel__title">AI 消费助手</div>
+                </div>
+            </div>
+            <div class="fd-ai-panel__actions">
+                <button class="fd-ai-panel__action-btn" id="ai-clear-btn" title="清空对话" aria-label="清空对话">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                </button>
+                <button class="fd-ai-panel__action-btn fd-ai-panel__close-btn" id="ai-close-btn" title="关闭" aria-label="关闭AI助手">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 消息列表 -->
+        <div class="fd-ai-panel__messages" id="ai-messages">
+            <!-- 欢迎消息 -->
+            <div class="fd-ai-msg fd-ai-msg--bot">
+                <span class="fd-ai-msg__avatar" aria-hidden="true">AI</span>
+                <div class="fd-ai-msg__bubble">你好！我是 AI 消费助手 👋<br>我可以帮你分析消费习惯、提供节省建议，或回答任何关于个人理财的问题。</div>
+            </div>
+        </div>
+
+        <!-- 快捷问题 -->
+        <div class="fd-ai-panel__quick-btns" id="ai-quick-btns">
+            <button class="fd-ai-quick-btn" data-q="帮我分析一下常见的大学生消费误区">消费误区分析</button>
+            <button class="fd-ai-quick-btn" data-q="如何制定合理的月度消费预算？">预算制定建议</button>
+            <button class="fd-ai-quick-btn" data-q="外卖和自己做饭哪个更省钱？">外卖 vs 自炊</button>
+        </div>
+
+        <!-- 输入区 -->
+        <div class="fd-ai-panel__input-wrap">
+            <textarea
+                class="fd-ai-panel__textarea"
+                id="ai-input"
+                placeholder="输入问题，按 Enter 发送（Shift+Enter 换行）…"
+                rows="1"
+                aria-label="输入消息"
+            ></textarea>
+            <button class="fd-ai-panel__send-btn" id="ai-send-btn" aria-label="发送">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+    /* ========== AI 聊天面板逻辑 ========== */
+    (function () {
+        const fab       = document.getElementById('ai-fab-btn');
+        const panel     = document.getElementById('ai-panel');
+        const closeBtn  = document.getElementById('ai-close-btn');
+        const clearBtn  = document.getElementById('ai-clear-btn');
+        const input     = document.getElementById('ai-input');
+        const sendBtn   = document.getElementById('ai-send-btn');
+        const msgList   = document.getElementById('ai-messages');
+        const quickWrap = document.getElementById('ai-quick-btns');
+
+        let history = [];   // { role, content }[]
+        let isLoading = false;
+        const MAX_HISTORY_MSGS = 60;
+
+        /* --- 开关面板 --- */
+        function openPanel() {
+            panel.classList.add('fd-ai-panel--open');
+            fab.classList.add('fd-ai-fab--open');
+            panel.setAttribute('aria-hidden', 'false');
+            input.focus();
+        }
+        function closePanel() {
+            panel.classList.remove('fd-ai-panel--open');
+            fab.classList.remove('fd-ai-fab--open');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+        fab.addEventListener('click', () => panel.classList.contains('fd-ai-panel--open') ? closePanel() : openPanel());
+        closeBtn.addEventListener('click', closePanel);
+
+        /* --- 清空对话 --- */
+        clearBtn.addEventListener('click', () => {
+            history = [];
+            msgList.innerHTML = '';
+            appendBotMsg('对话已清空，有什么可以帮你的？');
+            quickWrap.style.display = '';
+        });
+
+        /* --- 渲染消息 --- */
+        function appendUserMsg(text) {
+            const div = document.createElement('div');
+            div.className = 'fd-ai-msg fd-ai-msg--user';
+            div.innerHTML = `<div class="fd-ai-msg__bubble">${escHtml(text)}</div>`;
+            msgList.appendChild(div);
+            scrollBottom();
+        }
+
+        function appendBotMsg(text) {
+            const div = document.createElement('div');
+            div.className = 'fd-ai-msg fd-ai-msg--bot';
+            div.innerHTML = `<span class="fd-ai-msg__avatar" aria-hidden="true">AI</span><div class="fd-ai-msg__bubble">${mdToHtml(text)}</div>`;
+            msgList.appendChild(div);
+            scrollBottom();
+            return div.querySelector('.fd-ai-msg__bubble');
+        }
+
+        function appendLoading() {
+            const div = document.createElement('div');
+            div.className = 'fd-ai-msg fd-ai-msg--bot fd-ai-msg--loading';
+            div.innerHTML = `<span class="fd-ai-msg__avatar" aria-hidden="true">AI</span><div class="fd-ai-msg__bubble"><span class="fd-ai-dots"><span></span><span></span><span></span></span></div>`;
+            msgList.appendChild(div);
+            scrollBottom();
+            return div;
+        }
+
+        function scrollBottom() {
+            msgList.scrollTop = msgList.scrollHeight;
+        }
+
+        /* --- 简易 Markdown → HTML（粗体 / 换行 / 代码行） --- */
+        function mdToHtml(text) {
+            return escHtml(text)
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        /* --- 发送消息（SSE 流式） --- */
+        async function sendMessage(text) {
+            text = text.trim();
+            if (!text || isLoading) return;
+            isLoading = true;
+            sendBtn.disabled = true;
+            quickWrap.style.display = 'none';
+
+            history.push({ role: 'user', content: text });
+            appendUserMsg(text);
+            input.value = '';
+            input.style.height = '';
+
+            const loadingEl = appendLoading();
+            let fullReply = '';
+            let bubbleEl = null;
+
+            try {
+                const resp = await fetch('/api/ai_chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: history }),
+                });
+
+                if (!resp.ok) {
+                    const errData = await resp.json().catch(() => ({}));
+                    throw new Error(errData.error || '请求失败 ' + resp.status);
+                }
+
+                loadingEl.remove();
+                bubbleEl = appendBotMsg('');
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const payload = line.slice(6).trim();
+                        if (payload === '[DONE]') continue;
+                        try {
+                            const chunk = JSON.parse(payload);
+                            if (chunk.error) {
+                                fullReply += '\n⚠️ ' + chunk.error;
+                            } else if (chunk.t) {
+                                fullReply += chunk.t;
+                            }
+                            bubbleEl.innerHTML = mdToHtml(fullReply);
+                            scrollBottom();
+                        } catch (_) {}
+                    }
+                }
+
+                if (fullReply) {
+                    history.push({ role: 'assistant', content: fullReply });
+                }
+                if (history.length > MAX_HISTORY_MSGS) {
+                    history = history.slice(-MAX_HISTORY_MSGS);
+                    if (history.length && history[0].role === 'assistant') {
+                        history.shift();
+                    }
+                }
+            } catch (e) {
+                loadingEl.remove();
+                appendBotMsg('⚠️ ' + (e.message || '网络异常，请检查连接后重试'));
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+                input.focus();
+            }
+        }
+
+        /* --- 发送按钮 & Enter 键 --- */
+        sendBtn.addEventListener('click', () => sendMessage(input.value));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(input.value);
+            }
+        });
+
+        /* --- 自动扩展输入框高度 --- */
+        input.addEventListener('input', () => {
+            input.style.height = '';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        });
+
+        /* --- 快捷问题按钮 --- */
+        quickWrap.querySelectorAll('.fd-ai-quick-btn').forEach(btn => {
+            btn.addEventListener('click', () => sendMessage(btn.dataset.q));
+        });
+
+        /* --- 拖拽调整面板大小（左侧 / 顶部 / 左上角） --- */
+        (function initResize() {
+            const handles = panel.querySelectorAll('[data-resize]');
+            let dragging = false, startX, startY, startW, startH, startRight, startBottom, mode;
+
+            handles.forEach(h => {
+                h.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dragging = true;
+                    mode = h.dataset.resize;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = panel.getBoundingClientRect();
+                    startW = rect.width;
+                    startH = rect.height;
+                    startRight = window.innerWidth - rect.right;
+                    startBottom = window.innerHeight - rect.bottom;
+                    panel.style.transition = 'none';
+                    document.body.style.cursor =
+                        mode === 'left' ? 'ew-resize' :
+                        mode === 'top'  ? 'ns-resize' : 'nwse-resize';
+                    document.body.style.userSelect = 'none';
+                });
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const dx = startX - e.clientX;
+                const dy = startY - e.clientY;
+
+                if (mode === 'left' || mode === 'top-left') {
+                    const newW = Math.max(320, Math.min(startW + dx, window.innerWidth * 0.9));
+                    panel.style.width = newW + 'px';
+                }
+                if (mode === 'top' || mode === 'top-left') {
+                    const newH = Math.max(280, Math.min(startH + dy, window.innerHeight - 120));
+                    panel.style.height = newH + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                panel.style.transition = '';
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+        })();
+    })();
+    </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # CSS 分层体系维护手册
 
-本目录采用**单入口 + 模块拆分 + BEM + 状态类**方式维护，共 **8 个 CSS 文件**，由 `frontend.PC-Mphone.css` 统一串联导入。
+本目录采用**单入口 + 模块拆分 + BEM + 状态类**方式维护：**入口 1 个 + 分表 8 个**（共 9 个文件），由 `frontend.PC-Mphone.css` 统一串联导入。
 
 ---
 
@@ -28,6 +28,7 @@
 | `frontend.PC.dashboard.css` | 指标卡、图表容器、明细表 | 调整图表高度、指标卡颜色 |
 | `frontend.PC.modal.css` | 日期筛选弹窗全套 UI | 修改弹窗结构或日历样式 |
 | `frontend.Mphone.responsive.css` | `≤768px` / `≤480px` 覆盖 | 移动端布局调整 |
+| `frontend.PC.ai-chat.css` | AI 对话面板、消息气泡、输入区 | 调整聊天侧栏或流式输出区域样式 |
 
 ---
 
@@ -43,13 +44,15 @@
 @import url("/static/css/frontend.PC.dashboard.css");
 @import url("/static/css/frontend.PC.modal.css");
 @import url("/static/css/frontend.Mphone.responsive.css");
+@import url("/static/css/frontend.PC.ai-chat.css");
 ```
 
 顺序含义：
 
 1. **tokens 先行**：后续所有文件可直接使用 `var(--*)` 变量
 2. **layout/theme/components/dashboard/modal** 依次叠加业务层
-3. **responsive 最后**：`@media` 覆盖规则放在末尾，避免被桌面规则反覆盖
+3. **responsive**：`@media` 覆盖桌面规则，保证窄屏布局优先
+4. **ai-chat 最后**：对话面板依赖前述变量与布局基线；置尾便于覆盖侧栏/主内容相邻区域样式，且不被 responsive 误伤时可在此做细调（若与移动端冲突，请在 `ai-chat` 内用 `@media` 收敛）
 
 **打乱顺序的常见后果：**
 
@@ -68,7 +71,7 @@
 维护规范：
 
 - 新增分层文件时，只在本文件追加导入，不要在 HTML 中额外添加 `<link>`
-- 遵循导入顺序：变量 → 结构 → 主题 → 组件 → 业务 → 弹窗 → 响应式
+- 遵循导入顺序：变量 → 结构 → 主题 → 组件 → 业务 → 弹窗 → 响应式 → ai-chat
 - 线上有缓存策略时，修改后同步提升 query `?v=` 版本号
 
 ---
@@ -437,7 +440,7 @@
 
 ## 7. 提交前检查清单
 
-- [ ] 8 个文件职责仍清晰，无跨层乱放
+- [ ] 各分层文件职责仍清晰，无跨层乱放
 - [ ] `frontend.PC-Mphone.css` 的 `@import` 顺序正确
 - [ ] 新增颜色/圆角/阴影已提取为 CSS 变量，避免硬编码
 - [ ] 暗色 `html[data-theme="dark"]` 已覆盖新增组件

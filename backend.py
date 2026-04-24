@@ -4,15 +4,25 @@
 提供首页单页模板、按条件统计的 JSON API，以及供前端日期筛选使用的日期索引 API。
 数据库默认为同目录下的 SQLite 文件 student_expense_record.db，可通过环境变量 DATABASE_PATH 覆盖。
 """
+import json
 import os
+import re
 import sqlite3
+import time
+from datetime import datetime
 
 import pandas as pd
-from flask import Flask, jsonify, render_template, request
+import requests as http_requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from flask import Flask, Response, jsonify, render_template, request
 
 app = Flask(__name__)
 # 开发时关闭静态文件缓存，修改 CSS/JS 后刷新即可看到最新资源（生产可用反向代理缓存替代）
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
+
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_AI_SECRETS_FILENAME = "ai_api_secrets.json"
 
 
 def get_db():
@@ -459,6 +469,455 @@ def api_delete_expense():
     conn.commit()
     conn.close()
     return jsonify({"success": True})
+
+
+_MAX_RETRIES = 3
+
+
+def _ai_secrets_file_path():
+    """
+    私钥配置文件路径。
+    可选环境变量 AI_API_SECRETS_PATH：绝对路径，或相对于 backend.py 所在目录的相对路径。
+    默认：与 backend.py 同目录的 ai_api_secrets.json（须加入 .gitignore，勿提交密钥）。
+    """
+    raw = (os.environ.get("AI_API_SECRETS_PATH") or "").strip()
+    if raw:
+        return raw if os.path.isabs(raw) else os.path.join(_BACKEND_DIR, raw)
+    return os.path.join(_BACKEND_DIR, _DEFAULT_AI_SECRETS_FILENAME)
+
+
+def _load_moark_ai_config():
+    """
+    从本地 JSON 读取 Moark/OpenAI 兼容接口配置，密钥不写在代码里。
+
+    默认读取 ai_api_secrets.json，字段见同目录下 ai_api_secrets.example.json。
+    若文件中未配置 api_key，再尝试环境变量 MOARK_API_KEY 或 OPENAI_API_KEY（可选回退）。
+    """
+    default_url = "https://api.moark.com/v1/chat/completions"
+    default_model = "MiniMax-M2.7"
+    url, key, model = default_url, "", default_model
+
+    path = _ai_secrets_file_path()
+    if os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                key = str(data.get("api_key") or "").strip()
+                u = str(data.get("api_url") or "").strip()
+                if u:
+                    url = u
+                m = str(data.get("model") or "").strip()
+                if m:
+                    model = m
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    if not key:
+        key = (os.environ.get("MOARK_API_KEY") or os.environ.get("OPENAI_API_KEY") or "").strip()
+
+    return url, key, model
+
+
+def _build_http_session():
+    """构建带有自动重试的 HTTP Session，应对 SSL/连接瞬断。"""
+    session = http_requests.Session()
+    retry_strategy = Retry(
+        total=_MAX_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["POST"],
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+_AI_SYSTEM_PROMPT = (
+    "你是[学生消费统计及可视化平台]内置的 AI 消费分析助手。"
+    "用户的真实消费数据已自动从数据库获取并附在下方，请直接基于数据回答，不要索要数据。"
+    "回答要求：简洁精炼，用数字说话；给出具体可执行的建议；如数据不足直接说明。"
+)
+
+_MAX_HISTORY_TURNS = 30
+_MAX_TOTAL_CHARS = 64000
+
+
+def _expand_year(y_str):
+    """将 2 位年份缩写扩展为 4 位：00-49→2000s，50-99→1900s；4 位原样返回。"""
+    y = int(y_str)
+    if y < 100:
+        return 2000 + y if y < 50 else 1900 + y
+    return y
+
+
+def _month_end(y, mo):
+    """返回 y 年 mo 月最后一天的日期字符串。"""
+    if mo == 12:
+        return f"{y}-12-31"
+    nxt = datetime(y, mo + 1, 1) - pd.Timedelta(days=1)
+    return nxt.strftime("%Y-%m-%d")
+
+
+def _parse_time_range(text):
+    """
+    从用户消息文本中提取时间范围，返回 (start_date, end_date) 字符串。
+    支持：2023年、23年、2023年3月、23年1月、23年1月5日/号、3月、3月15日、
+          上个月、本月、最近一周、今天、昨天、7号/7日（需上下文补全）等。
+    """
+    today = datetime.today()
+
+    # 年+月+日（2-4位年份）
+    m = re.search(r"(\d{2,4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]", text)
+    if m:
+        y = _expand_year(m.group(1))
+        d = f"{y}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+        return d, d
+
+    # 年+月（2-4位年份）
+    m = re.search(r"(\d{2,4})\s*[年\-/]\s*(\d{1,2})\s*月?", text)
+    if m:
+        y, mo = _expand_year(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12:
+            return f"{y}-{mo:02d}-01", _month_end(y, mo)
+
+    # 仅年份（2-4位）
+    m = re.search(r"(\d{2,4})\s*年", text)
+    if m:
+        y = _expand_year(m.group(1))
+        return f"{y}-01-01", f"{y}-12-31"
+
+    # 月+日（无年份，默认今年）
+    m = re.search(r"(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]", text)
+    if m:
+        mo, d = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            dt = f"{today.year}-{mo:02d}-{d:02d}"
+            return dt, dt
+
+    # 仅月份（无年份，默认今年）
+    m = re.search(r"(\d{1,2})\s*月", text)
+    if m:
+        mo = int(m.group(1))
+        if 1 <= mo <= 12:
+            return f"{today.year}-{mo:02d}-01", _month_end(today.year, mo)
+
+    # 仅日号（如"7号""7日"），需外部传入 hint_year / hint_month 补全，
+    # 此处先返回特殊标记 ("__day_only__", day) 给调用方处理
+    m = re.search(r"(?<!\d)(\d{1,2})\s*[日号]", text)
+    if m:
+        d = int(m.group(1))
+        if 1 <= d <= 31:
+            return "__day_only__", str(d)
+
+    if re.search(r"上个?月|上月", text):
+        first_this = today.replace(day=1)
+        last_month_end = first_this - pd.Timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        return last_month_start.strftime("%Y-%m-%d"), last_month_end.strftime("%Y-%m-%d")
+
+    if re.search(r"本月|这个?月", text):
+        return today.replace(day=1).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+
+    if re.search(r"最近\s*一?\s*周|近7天|过去7天", text):
+        return (today - pd.Timedelta(days=7)).strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
+
+    if re.search(r"今天|今日", text):
+        d = today.strftime("%Y-%m-%d")
+        return d, d
+
+    if re.search(r"昨天|昨日", text):
+        return (today - pd.Timedelta(days=1)).strftime("%Y-%m-%d"), (today - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+    return None, None
+
+
+def _extract_year_month_hint(text):
+    """
+    从文本中提取年份和月份信息（仅提取，不组合完整范围），
+    用于为后续追问中的"仅日号"提供上下文补全。
+    返回 (year_int_or_None, month_int_or_None)。
+    """
+    year, month = None, None
+    m = re.search(r"(\d{2,4})\s*[年\-/]\s*(\d{1,2})", text)
+    if m:
+        year = _expand_year(m.group(1))
+        mo = int(m.group(2))
+        if 1 <= mo <= 12:
+            month = mo
+        return year, month
+    m = re.search(r"(\d{2,4})\s*年", text)
+    if m:
+        year = _expand_year(m.group(1))
+    m = re.search(r"(\d{1,2})\s*月", text)
+    if m:
+        mo = int(m.group(1))
+        if 1 <= mo <= 12:
+            month = mo
+    return year, month
+
+
+def _parse_time_range_with_history(user_messages):
+    """
+    先从最后一条用户消息提取时间范围；若结果不完整（如仅有日号），
+    则回溯历史消息提取年/月信息进行补全。
+    """
+    today = datetime.today()
+    last_text = ""
+    for m in reversed(user_messages):
+        if m.get("role") == "user":
+            last_text = m.get("content", "")
+            break
+
+    start, end = _parse_time_range(last_text)
+
+    if start == "__day_only__":
+        day = int(end)
+        hint_year, hint_month = None, None
+        for m in reversed(user_messages):
+            if m.get("role") != "user":
+                continue
+            content = m.get("content", "")
+            if content == last_text:
+                continue
+            hy, hm = _extract_year_month_hint(content)
+            if hint_year is None and hy is not None:
+                hint_year = hy
+            if hint_month is None and hm is not None:
+                hint_month = hm
+            if hint_year is not None and hint_month is not None:
+                break
+
+        y = hint_year if hint_year else today.year
+        mo = hint_month if hint_month else today.month
+        d = f"{y}-{mo:02d}-{day:02d}"
+        return d, d
+
+    if start is not None:
+        return start, end
+
+    return None, None
+
+
+def _parse_category(text):
+    """从用户消息中提取消费类别关键词，返回匹配的类别名或 None。"""
+    all_cats = get_all_categories()
+    for cat in sorted(all_cats, key=len, reverse=True):
+        if cat in text:
+            return cat
+    return None
+
+
+def _build_expense_context(start_date=None, end_date=None, category=None):
+    """
+    根据时间范围和可选类别从数据库提取消费数据摘要。
+    """
+    df = get_all_expenses()
+    if df.empty:
+        return "【消费数据】暂无任何记录。"
+
+    df["金额"] = pd.to_numeric(df["金额"], errors="coerce")
+    df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
+    df = df.dropna(subset=["日期", "金额"])
+    if df.empty:
+        return "【消费数据】暂无有效记录。"
+
+    global_min = df["日期"].min().strftime("%Y-%m-%d")
+    global_max = df["日期"].max().strftime("%Y-%m-%d")
+    global_total = round(df["金额"].sum(), 2)
+
+    filtered = df
+    range_label = f"{global_min} ~ {global_max}（全部）"
+    if start_date and end_date:
+        filtered = filtered[(filtered["日期"] >= start_date) & (filtered["日期"] <= end_date)]
+        range_label = f"{start_date} ~ {end_date}"
+
+    cat_label = "全部类别"
+    if category:
+        filtered = filtered[filtered["类别"] == category]
+        cat_label = category
+
+    parts = [f"【消费数据 | 范围：{range_label} | 类别：{cat_label}】",
+             f"全库 {global_min}~{global_max}，总计 {global_total} 元。"]
+
+    if filtered.empty:
+        parts.append("该条件下无消费记录。")
+        return "\n".join(parts)
+
+    total = round(filtered["金额"].sum(), 2)
+    day_count = filtered["日期"].dt.date.nunique()
+    daily_avg = round(total / day_count, 2) if day_count else 0
+    record_count = len(filtered)
+    parts.append(f"匹配 {record_count} 笔，合计 {total} 元，覆盖 {day_count} 天，日均 {daily_avg} 元。")
+
+    if not category:
+        cat_data = filtered.groupby("类别")["金额"].sum().round(2).sort_values(ascending=False)
+        cat_lines = [f"{c} {v}元({round(v/total*100,1)}%)" for c, v in cat_data.items()]
+        parts.append("类别明细：" + "、".join(cat_lines))
+    else:
+        if day_count <= 31:
+            daily = filtered.groupby(filtered["日期"].dt.strftime("%Y-%m-%d"))["金额"].sum().round(2)
+            d_lines = [f"{d}:{v}元" for d, v in daily.items()]
+            parts.append(f"{category}逐日：" + "、".join(d_lines))
+
+    if not category and day_count > 31:
+        monthly = filtered.groupby(filtered["日期"].dt.to_period("M"))["金额"].sum().round(2)
+        m_lines = [f"{p}:{v}元" for p, v in monthly.items()]
+        parts.append("逐月消费：" + "、".join(m_lines))
+    elif not category and day_count > 0:
+        daily = filtered.groupby(filtered["日期"].dt.strftime("%m-%d"))["金额"].sum().round(2)
+        d_lines = [f"{d}:{v}元" for d, v in daily.items()]
+        parts.append("逐日消费：" + "、".join(d_lines))
+
+    return "\n".join(parts)
+
+
+def _trim_messages(messages):
+    """
+    裁剪对话历史，防止超出模型上下文窗口。
+    策略：保留最近 _MAX_HISTORY_TURNS 条消息，且总字符数不超过 _MAX_TOTAL_CHARS。
+    裁剪时始终保留最新的消息，从最早的开始丢弃，
+    并确保裁剪后第一条消息是 user 角色（避免孤立的 assistant 回复）。
+    """
+    msgs = messages[-_MAX_HISTORY_TURNS * 2:]
+
+    total = sum(len(m.get("content", "")) for m in msgs)
+    while total > _MAX_TOTAL_CHARS and len(msgs) > 2:
+        removed = msgs.pop(0)
+        total -= len(removed.get("content", ""))
+
+    while msgs and msgs[0].get("role") == "assistant":
+        msgs.pop(0)
+
+    return msgs
+
+
+@app.route("/api/ai_chat", methods=["POST"])
+def api_ai_chat():
+    """
+    AI 聊天 SSE 流式接口。逐 token 推送，前端即时渲染。
+    请求体 JSON: { "messages": [{role, content}, ...] }
+    返回: text/event-stream，每个 data 行为一段文本片段；最终发送 data: [DONE]。
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    user_messages = data.get("messages", [])
+    if not user_messages:
+        return jsonify({"error": "messages 不能为空"}), 400
+
+    last_user_msg = ""
+    for m in reversed(user_messages):
+        if m.get("role") == "user":
+            last_user_msg = m.get("content", "")
+            break
+
+    start_date, end_date = _parse_time_range_with_history(user_messages)
+
+    category = _parse_category(last_user_msg)
+    if category is None:
+        for m in reversed(user_messages):
+            if m.get("role") != "user":
+                continue
+            if m.get("content", "") == last_user_msg:
+                continue
+            category = _parse_category(m.get("content", ""))
+            if category is not None:
+                break
+
+    expense_context = _build_expense_context(start_date, end_date, category)
+    system_content = f"{_AI_SYSTEM_PROMPT}\n\n{expense_context}"
+
+    trimmed = _trim_messages(user_messages)
+    messages = [{"role": "system", "content": system_content}] + trimmed
+
+    import json as _json
+
+    def generate():
+        api_url, api_key, model_name = _load_moark_ai_config()
+        secrets_path = _ai_secrets_file_path()
+        example_name = "ai_api_secrets.example.json"
+
+        if not api_key:
+            err = (
+                "未配置 AI 密钥：请在 "
+                + secrets_path
+                + " 中填写 api_key（可复制同目录下 "
+                + example_name
+                + " 为 ai_api_secrets.json 后编辑）；该文件请勿提交到 Git。"
+            )
+            yield f"data: {_json.dumps({'error': err}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        request_payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 1024,
+            "stream": True,
+        }
+        request_headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+        last_error = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                session = _build_http_session()
+                resp = session.post(
+                    api_url,
+                    headers=request_headers,
+                    json=request_payload,
+                    timeout=(15, 90),
+                    stream=True,
+                )
+                if resp.status_code == 400:
+                    body = resp.text.lower()
+                    if "token" in body or "length" in body or "context" in body:
+                        yield f"data: {_json.dumps({'error': '对话过长，请点击左上角清空按钮开始新对话'}, ensure_ascii=False)}\n\n"
+                        yield "data: [DONE]\n\n"
+                        return
+                resp.raise_for_status()
+
+                for line in resp.iter_lines(decode_unicode=True):
+                    if not line or not line.startswith("data:"):
+                        continue
+                    payload = line[len("data:"):].strip()
+                    if payload == "[DONE]":
+                        break
+                    try:
+                        chunk = _json.loads(payload)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield f"data: {_json.dumps({'t': content}, ensure_ascii=False)}\n\n"
+                    except (KeyError, IndexError, _json.JSONDecodeError):
+                        continue
+
+                yield "data: [DONE]\n\n"
+                return
+
+            except (http_requests.exceptions.SSLError,
+                    http_requests.exceptions.ConnectionError) as exc:
+                last_error = exc
+                if attempt < _MAX_RETRIES - 1:
+                    time.sleep(1.5 * (attempt + 1))
+                    continue
+            except http_requests.exceptions.Timeout:
+                yield f"data: {_json.dumps({'error': 'AI 服务响应超时，请稍后再试'}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+            except Exception as exc:
+                yield f"data: {_json.dumps({'error': f'AI 服务异常：{exc}'}, ensure_ascii=False)}\n\n"
+                yield "data: [DONE]\n\n"
+                return
+
+        yield f"data: {_json.dumps({'error': f'AI 服务连接失败（已重试{_MAX_RETRIES}次），请检查网络后再试'}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return Response(generate(), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 if __name__ == "__main__":

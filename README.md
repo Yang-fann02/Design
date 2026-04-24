@@ -1,6 +1,6 @@
 # 学生消费统计及可视化平台
 
-基于 **Flask + SQLite + ECharts 5** 的轻量单页数据看板，用于展示、筛选与管理学生消费记录，包含汇总指标、类别占比饼图、每日消费趋势柱图和明细表。
+基于 **Flask + SQLite + pandas + requests + ECharts 5** 的单页应用：消费记录的增删改查、按条件统计与图表展示；内置 **AI 消费分析助手**（服务端从数据库汇总上下文，经兼容 OpenAI 的聊天 API **流式**返回）。
 
 ---
 
@@ -10,27 +10,26 @@
 2. [技术栈与依赖](#2-技术栈与依赖)
 3. [目录结构](#3-目录结构)
 4. [快速启动](#4-快速启动)
-5. [后端架构与数据流](#5-后端架构与数据流)
-6. [REST API 说明](#6-rest-api-说明)
-7. [前端页面与交互](#7-前端页面与交互)
-8. [CSS 分层体系](#8-css-分层体系)
-9. [日期筛选规则](#9-日期筛选规则)
-10. [常见开发任务](#10-常见开发任务)
-11. [本地验证清单](#11-本地验证清单)
-12. [已知约束](#12-已知约束)
-13. [可扩展方向](#13-可扩展方向)
+5. [AI 密钥配置文件](#5-ai-密钥配置文件)
+6. [后端架构与数据流](#6-后端架构与数据流)
+7. [REST API 说明](#7-rest-api-说明)
+8. [AI 对话接口（SSE）](#8-ai-对话接口sse)
+9. [前端页面与交互](#9-前端页面与交互)
+10. [CSS 分层体系](#10-css-分层体系)
+11. [日期筛选规则](#11-日期筛选规则)
+12. [常见开发任务](#12-常见开发任务)
+13. [本地验证清单](#13-本地验证清单)
+14. [已知约束与安全提示](#14-已知约束与安全提示)
+15. [可扩展方向](#15-可扩展方向)
+16. [参考文档](#16-参考文档)
 
 ---
 
 ## 1. 项目目标与适用场景
 
-本项目适合以下场景：
-
-- 课程作业或毕业设计中的"消费行为统计与可视化"主题
-- 快速验证"小体量数据看板"完整链路（存储 → 聚合 → 可视化）
-- 作为 Flask 单页应用、CSS 分层治理、ECharts 集成的参考模板
-
-核心价值在于将"可运行的业务看板"压缩到少量文件内，保持可读、可改、可继续扩展。
+- 课程作业或毕业设计中的「消费行为统计与可视化」主题  
+- 验证小体量数据看板：SQLite → pandas 聚合 → JSON API → ECharts 与表格  
+- 参考实现：Flask 单页、CSS 分模块、`text/event-stream` 流式前端、本地密钥文件与 Git 隔离  
 
 ---
 
@@ -41,24 +40,17 @@
 | 组件 | 版本要求 | 用途 |
 |------|----------|------|
 | Python | 3.9+ | 运行环境 |
-| Flask | ≥ 2.0 | Web 路由与模板渲染 |
-| pandas | ≥ 1.3 | 分组统计、日期转换 |
-| sqlite3 | 标准库 | 数据持久化 |
+| Flask | ≥ 2.3 | 路由、模板、静态资源 |
+| pandas | ≥ 2.0 | 筛选、分组、日期处理 |
+| requests | ≥ 2.28（见 `requirements.txt`） | AI 接口 HTTP、重试、流式响应体 |
+| sqlite3 | 标准库 | SQLite |
 
 ### 前端
 
 | 组件 | 引入方式 | 用途 |
 |------|----------|------|
-| 原生 HTML / CSS / JS | — | 页面结构与交互 |
-| ECharts 5.4.3 | CDN | 饼图、柱状图可视化 |
-
-### 依赖文件
-
-```
-requirements.txt
-```
-
-安装命令：
+| 原生 HTML / CSS / JS | `templates/frontend.html` | 视图、请求、SSE 解析 |
+| ECharts 5.4.3 | CDN | 类别饼图、每日柱状图 |
 
 ```bash
 pip install -r requirements.txt
@@ -69,401 +61,263 @@ pip install -r requirements.txt
 ## 3. 目录结构
 
 ```text
-Design-develop/
-├── backend.py                          # Flask 入口、数据库访问、统计逻辑
-├── requirements.txt                    # Python 依赖
-├── student_expense_record.db           # SQLite 数据库（运行后自动创建）
-├── README.md                           # 本文件（项目总说明）
-├── DATABASE.md                         # 数据库设计详细说明
+Design/                    # 仓库根目录名称以本机为准
+├── backend.py             # Flask、数据库、统计、AI 代理
+├── requirements.txt
+├── student_expense_record.db   # 默认 SQLite（运行 init_db 后可用）
+├── ai_api_secrets.example.json  # AI 配置模板（可提交，无真实密钥）
+├── ai_api_secrets.json     # 真实密钥（勿提交；见 .gitignore）
+├── README.md
+├── DATABASE.md
+├── .gitignore
 ├── templates/
-│   └── frontend.html                   # 单页模板 + 内联前端脚本
+│   └── frontend.html      # 单页 + 内联脚本
 ├── static/
 │   ├── icons/
-│   │   └── money-bag.png               # 应用图标
+│   │   └── money-bag.png
 │   └── css/
-│       ├── frontend.PC-Mphone.css      # CSS 总入口（仅做 @import）
-│       ├── frontend.PC.tokens.css      # 设计令牌 / 全局变量 / reset
-│       ├── frontend.PC.layout.css      # 页面骨架 / 侧栏 / 顶栏 / 视图动画
-│       ├── frontend.PC.theme.css       # 主题切换组件与暗色覆盖
-│       ├── frontend.PC.components.css  # 通用组件（按钮、卡片等）
-│       ├── frontend.PC.dashboard.css   # 图表、指标卡、表格业务样式
-│       ├── frontend.PC.modal.css       # 日期筛选弹窗
-│       ├── frontend.Mphone.responsive.css  # 移动端响应式覆盖（≤768px / ≤480px）
-│       └── README.md                   # CSS 分层维护手册
-└── backups/                            # 文档备份（不进入运行时）
+│       ├── frontend.PC-Mphone.css   # 样式总入口
+│       ├── frontend.PC.tokens.css
+│       ├── frontend.PC.layout.css
+│       ├── frontend.PC.theme.css
+│       ├── frontend.PC.components.css
+│       ├── frontend.PC.dashboard.css
+│       ├── frontend.PC.modal.css
+│       ├── frontend.Mphone.responsive.css
+│       ├── frontend.PC.ai-chat.css
+│       └── README.md      # CSS 分层说明
+└── backups/               # 本地备份（不参与运行）
 ```
 
 ---
 
 ## 4. 快速启动
 
-### 4.1 安装依赖
+### 4.1 虚拟环境与依赖
 
-```bash
-# 可选：创建虚拟环境
+```powershell
 python -m venv .venv
-
-# Windows PowerShell
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 4.2 启动服务
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 4.2 启动
 
 ```bash
 python backend.py
 ```
 
-默认监听：
+启动时调用 `init_db()`：创建 `expenses` 表（若不存在），并按需完成旧库 `category` NOT NULL 迁移。
 
-- Host：`0.0.0.0`
-- Port：`8000`
+默认监听 **`0.0.0.0:8000`**：[http://127.0.0.1:8000](http://127.0.0.1:8000)
 
-浏览器访问：[http://127.0.0.1:8000](http://127.0.0.1:8000)
+### 4.3 数据库路径
 
-### 4.3 数据库路径配置
+默认与 `backend.py` 同目录的 `student_expense_record.db`。覆盖方式：
 
-默认数据库文件：`student_expense_record.db`（与 `backend.py` 同目录）
-
-通过环境变量覆盖：
-
-```bash
-# Windows PowerShell
+```powershell
 $env:DATABASE_PATH = "D:\data\my_expenses.db"
 python backend.py
+```
 
-# macOS / Linux
+```bash
 DATABASE_PATH=/data/my_expenses.db python backend.py
 ```
 
-若 `DATABASE_PATH` 为相对路径，以 `backend.py` 所在目录为基准解析。
+相对路径相对于 `backend.py` 所在目录。
 
 ---
 
-## 5. 后端架构与数据流
+## 5. AI 密钥配置文件
 
-`backend.py` 按职责分为四层：
+密钥**不写进** `backend.py`，由 **`ai_api_secrets.json`**（与 `backend.py` 同目录）或环境变量提供。
 
-| 层次 | 函数 | 说明 |
-|------|------|------|
-| 存储层 | `get_db()` `init_db()` `expense_row_count()` | 连接管理、表初始化、行数查询 |
-| 读取层 | `get_all_expenses()` `get_all_categories()` | 原始数据读取为 DataFrame |
-| 统计层 | `get_statistics()` `get_date_index()` | 筛选、聚合、日期索引构建 |
-| 接口层 | Flask 路由 `/` 及各 `/api/*` | 参数解析、JSON 序列化 |
+| 方式 | 说明 |
+|------|------|
+| **推荐** | 复制 `ai_api_secrets.example.json` 为 `ai_api_secrets.json`，填写 `api_key`；可选 `api_url`、`model`。 |
+| **自定义路径** | 设置环境变量 `AI_API_SECRETS_PATH`（绝对路径，或相对于 `backend.py` 所在目录的相对路径）。 |
+| **回退** | 若 JSON 中无有效 `api_key`，再读取 `MOARK_API_KEY` 或 `OPENAI_API_KEY`（便于 CI/服务器）。 |
 
-请求数据流（简化）：
+`ai_api_secrets.json` 已列入 **`.gitignore`**，请勿将含真实密钥的文件提交到远程仓库。
 
+**示例字段**（与 `ai_api_secrets.example.json` 一致）：
+
+```json
+{
+  "api_key": "你的密钥",
+  "api_url": "https://api.moark.com/v1/chat/completions",
+  "model": "MiniMax-M2.7"
+}
 ```
-前端 fetch('/api/statistics?...')
-  → 后端读 expenses 表 → pd.DataFrame
-  → 按参数筛选（日期 / 类别）
-  → groupby 聚合：总额、日均、类别占比、每日明细
-  → jsonify 返回
-  → 前端刷新指标卡 / 饼图 / 柱图 / 明细表
-```
+
+`api_url`、`model` 可省略时使用代码内与示例相同的默认值（仅 `api_key` 为敏感信息）。
 
 ---
 
-## 6. REST API 说明
+## 6. 后端架构与数据流
+
+| 层次 | 主要符号 | 说明 |
+|------|-----------|------|
+| 存储 | `get_db()`、`init_db()`、`expense_row_count()` | 连接、建表/迁移、行数 |
+| 读取 | `get_all_expenses()`、`get_all_categories()` | DataFrame / 类别列表 |
+| 统计 | `get_statistics()`、`get_date_index()` | 日期与类别筛选、聚合 |
+| HTTP | 各 `/api/*`、`index()` | JSON 或 SSE |
+| AI | `_ai_secrets_file_path()`、`_load_moark_ai_config()`、`_parse_time_range_with_history()`、`_build_expense_context()`、`api_ai_chat()` | 读配置、解析用户时间/类别、拼摘要、转发流式补全 |
+
+统计主路径：`GET /api/statistics` → 读 `expenses` → pandas → `jsonify` → 前端更新指标与图表。
+
+---
+
+## 7. REST API 说明
 
 ### `GET /`
 
-返回单页应用模板 `templates/frontend.html`。
-
----
+渲染 `templates/frontend.html`。
 
 ### `GET /api/statistics`
 
-按条件统计消费数据，供图表与表格渲染使用。
+**查询参数**：`start_date`、`end_date`（`YYYY-MM-DD`）；或 `only_month`（1–12）、可选 `only_dom`（1–31）；均可加 `only_category`。
 
-#### 查询参数
-
-支持两种筛选模式（互斥，`only_month` 有效时优先）：
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `start_date` | `YYYY-MM-DD` | 区间起始（可单独使用） |
-| `end_date` | `YYYY-MM-DD` | 区间结束（可单独使用） |
-| `only_month` | `1–12` | 跨年同月筛选（忽略年份） |
-| `only_dom` | `1–31` | 与 `only_month` 配合，进一步限定日 |
-| `only_category` | 字符串 | 类别精确匹配（可叠加在任意模式上） |
-
-#### 返回字段
-
-```jsonc
-{
-  "total_expense": 1280.50,        // 总消费金额
-  "daily_average": 42.68,          // 日均消费
-  "category_expense": {            // 按类别汇总
-    "早饭": 320.00,
-    "午饭": 480.00
-  },
-  "daily_trend": {                 // 按日期汇总（YYYY-MM-DD → 金额）
-    "2026-04-01": 85.00
-  },
-  "daily_detail": {                // 每日明细（YYYY-MM-DD → [{类别, 金额}]）
-    "2026-04-01": [
-      {"类别": "早饭", "金额": 15.00}
-    ]
-  },
-  "date_range": {"min": "2026-04-01", "max": "2026-04-30"},
-  "raw_table": [                   // 明细行数组，供表格渲染
-    {"日期": "2026-04-01", "类别": "早饭", "金额": 15.00}
-  ],
-  "has_data": true                 // 筛选结果是否非空
-}
-```
-
-#### 示例
+**返回**（节选）：`total_expense`、`daily_average`、`category_expense`、`daily_trend`、`daily_detail`、`date_range`、`raw_table`、`has_data`。
 
 ```http
-# 按日期区间
 GET /api/statistics?start_date=2026-04-01&end_date=2026-04-30
-
-# 跨年同月（所有年份 4 月）
-GET /api/statistics?only_month=4
-
-# 跨年同月同日（所有年份 4 月 20 日）
 GET /api/statistics?only_month=4&only_dom=20
-
-# 区间 + 类别
-GET /api/statistics?start_date=2026-04-01&end_date=2026-04-30&only_category=午饭
 ```
-
----
 
 ### `GET /api/date_index`
 
-构建前端日期弹窗所需的可选年 / 月 / 日索引。
-
-```jsonc
-{
-  "has_data": true,
-  "date_index": {
-    "years": [2025, 2026],
-    "months_by_year": {"2025": [11, 12], "2026": [1, 2, 3, 4]},
-    "days_by_year_month": {"2026-04": [1, 5, 10, 20]},
-    "date_range": {"min": "2025-11-01", "max": "2026-04-22"}
-  }
-}
-```
-
----
+返回 `has_data` 与 `date_index`（`years`、`months_by_year`、`days_by_year_month`、`date_range`），供日期弹窗使用。
 
 ### `GET /api/categories`
 
-返回所有出现过的消费类别（含内置默认 16 类）。
-
-```jsonc
-{"categories": ["交通", "医疗", "午饭", "娱乐", ...]}
-```
-
----
+`{"categories":[...]}`：内置类别与库中类别合并去重。
 
 ### `POST /api/add_expense`
 
-新增一条消费记录。
+JSON：`date`、`category`、`amount` → `{"success":true,"id":...}` 或 400。
 
-请求体：
+### `GET /api/expenses_by_date?date=YYYY-MM-DD`
 
-```jsonc
-{"date": "2026-04-22", "category": "午饭", "amount": 18.5}
-```
+该日所有记录（含 `id`）。
 
-返回：
+### `POST /api/update_expense` / `POST /api/delete_expense`
 
-```jsonc
-{"success": true, "id": 128}
-```
+更新或删除单条；请求体含 `id` 等字段。
 
 ---
 
-### `GET /api/expenses_by_date`
+## 8. AI 对话接口（SSE）
 
-查询某日所有记录（含 `id`，供变更页使用）。
+### `POST /api/ai_chat`
 
-```http
-GET /api/expenses_by_date?date=2026-04-22
-```
+- **Body**：`{"messages":[{"role":"user","content":"..."}, ...]}`  
+- **响应**：`text/event-stream`；增量为 `data: {"t":"..."}`；结束为 `data: [DONE]`；错误为 `data: {"error":"..."}` 后 `[DONE]`  
 
-返回：
+流程简述：从对话中推断时间范围与类别 → `_build_expense_context()` 生成文本摘要 → 与系统提示词合并 → 向 `api_url` 发起流式 `POST`（Bearer `api_key`）。
 
-```jsonc
-{"records": [{"id": 128, "date": "2026-04-22", "category": "午饭", "amount": 18.5}]}
-```
+未配置有效密钥时，流内返回说明性错误（提示创建 `ai_api_secrets.json` 等），不暴露密钥内容。
 
 ---
 
-### `POST /api/update_expense`
+## 9. 前端页面与交互
 
-更新单条记录。
+逻辑在 `templates/frontend.html`。
 
-请求体：
-
-```jsonc
-{"id": 128, "date": "2026-04-22", "category": "晚饭", "amount": 32.0}
-```
-
-返回：`{"success": true}`
-
----
-
-### `POST /api/delete_expense`
-
-删除单条记录。
-
-请求体：`{"id": 128}`
-
-返回：`{"success": true}`
-
----
-
-## 7. 前端页面与交互
-
-前端逻辑集中在 `templates/frontend.html`（HTML 结构 + 内联 `<script>`）。
-
-### 三个主视图
-
-| 视图 ID | 菜单项 | 内容 |
-|---------|--------|------|
-| `overview` | 概览 | 指标卡 + 饼图 + 柱图 |
-| `statistics` | 统计 | 与概览图表相同，独立实例 |
-| `details` | 明细 | 消费明细表 + 增删改操作 |
-
-### 日期筛选弹窗
-
-- 支持：仅年、仅月、年+月、年+月+日、跨年同月、跨年同月同日
-- 顶栏显示当前筛选条件，一键清除
-
-### ECharts 图表
-
-| 实例 ID | 视图 | 类型 |
-|---------|------|------|
-| `pc-category-chart` | 概览 | 圆环饼图（类别占比） |
-| `pc-trend-chart` | 概览 | 柱状图（每日消费） |
-| `pc-category-chart2` | 统计 | 同概览饼图 |
-| `pc-trend-chart2` | 统计 | 同概览柱图 |
-
-四个实例由同一套 `pcRenderUI()` 数据驱动，主题切换时重绘 option 而不重新请求接口（有缓存时）。
-
-### 其他交互
-
-- **主题切换**：亮色 / 暗色，状态持久化到 `localStorage`（键：`fd-theme`）
-- **桌面侧栏**：可拖拽调整宽度
-- **移动端侧栏**：抽屉式，汉堡按钮触发，遮罩点击收起
-
----
-
-## 8. CSS 分层体系
-
-CSS 采用"单入口 + 分层模块"方案，详见 `static/css/README.md`。
-
-加载顺序（`frontend.PC-Mphone.css` 按此顺序 `@import`）：
-
-```
-tokens → layout → theme → components → dashboard → modal → responsive
-```
-
-各层职责：
-
-| 文件 | 职责 |
+| 视图 | 内容 |
 |------|------|
-| `tokens` | 设计令牌（颜色、圆角、阴影、动效变量）与全局 reset |
-| `layout` | 页面骨架、侧栏、顶栏、视图切换动画 |
-| `theme` | 主题切换组件 + `html[data-theme="dark"]` 暗色覆盖 |
-| `components` | 跨页面通用组件（按钮、卡片、标题等） |
-| `dashboard` | 指标卡、图表容器、明细表业务样式 |
-| `modal` | 日期筛选弹窗全套 UI |
-| `responsive` | `≤768px` / `≤480px` 移动端覆盖 |
+| 概览 | 指标卡、饼图、柱图 |
+| 统计 | 独立图表实例 |
+| 明细 | 表格与增删改 |
+| AI 助手 | SSE 聊天；样式见 `frontend.PC.ai-chat.css` |
+
+主题亮/暗、侧栏（桌面可调宽 / 移动抽屉）、日期筛选弹窗与后端查询参数一致。
 
 ---
 
-## 9. 日期筛选规则
+## 10. CSS 分层体系
 
-前端 `pcBuildRangeFromFilter()` 生成查询参数，后端 `get_statistics()` 解析：
+唯一串联入口：`static/css/frontend.PC-Mphone.css`。
 
-| 用户选择 | 传参形式 | 语义 |
-|---------|----------|------|
-| 只选年 | `start_date=YYYY-01-01&end_date=YYYY-12-31` | 该年全年 |
-| 年 + 月 | `start_date=YYYY-MM-01&end_date=YYYY-MM-28/30/31` | 该年该月 |
-| 年 + 月 + 日 | `start_date=end_date=YYYY-MM-DD` | 单日 |
-| 只选月 | `only_month=M` | 所有年份的该月 |
-| 只选月 + 日 | `only_month=M&only_dom=D` | 所有年份该月该日 |
+```
+tokens → layout → theme → components → dashboard → modal → responsive → ai-chat
+```
+
+细则见 `static/css/README.md`。
 
 ---
 
-## 10. 常见开发任务
+## 11. 日期筛选规则
 
-### 新增 API 返回字段
+| 用户意图 | 典型参数 |
+|----------|-----------|
+| 整年 | `start_date=YYYY-01-01&end_date=YYYY-12-31` |
+| 年+月 | 该月首日至末日 |
+| 单日 | `start_date` = `end_date` = `YYYY-MM-DD` |
+| 跨年同月 | `only_month=M` |
+| 跨年同月同日 | `only_month=M&only_dom=D` |
 
-1. 修改 `backend.py` 中 `get_statistics()` 的返回 dict
-2. 在 `frontend.html` 的 `pcRenderUI()` 中消费新字段
-3. 如有展示需要，在对应 CSS 层补充样式
-
-### 修改图表配色
-
-1. 调整 `frontend.html` 内 `pcChart` / `PC_CAT_COLORS` 色板对象
-2. 同步检查 dark / light 两套颜色
-3. 验证 tooltip、legend、axis 文字可读性
-
-### 调整移动端布局
-
-1. 优先改 `frontend.Mphone.responsive.css`
-2. 避免反向改桌面文件导致覆盖冲突
-3. 重点回归：侧栏抽屉、顶栏工具条、图表高度、表格滚动
-
-### 新增消费类别
-
-1. 在 `backend.py` `get_all_categories()` 的 `default_cats` 列表追加
-2. 在 `frontend.html` `PC_CAT_COLORS` 对象追加对应颜色
+可与 `only_category` 组合。
 
 ---
 
-## 11. 本地验证清单
+## 12. 常见开发任务
 
-每次改动后建议验证：
-
-- [ ] 服务启动无报错，首页正常打开
-- [ ] `GET /api/statistics` 与 `GET /api/date_index` 返回正确
-- [ ] 三个视图切换正常，图表数据正确
-- [ ] 日期筛选各种组合均能得到正确结果
-- [ ] 亮色 / 暗色主题切换后图表与页面配色同步
-- [ ] 新增、修改、删除记录后数据刷新
-- [ ] 窄屏（≤768px / ≤480px）下导航、图表、表格可用
-
----
-
-## 12. 已知约束
-
-- `date` 字段以文本存储，写入时须严格遵循 `YYYY-MM-DD` 格式，排序依赖字符串顺序
-- `amount` 为浮点型，展示时前端格式化为 `¥XX.XX`
-- 无用户系统、无鉴权、无限流，仅适合本地或受信任内网使用
-- 前端脚本内联在模板中，适合中小体量，后续可拆为独立静态 JS 模块
-- 静态文件缓存在开发模式下被禁用（`SEND_FILE_MAX_AGE_DEFAULT = 0`），生产部署时应配合反向代理缓存
-
----
-
-## 13. 可扩展方向
-
-按优先级建议：
-
-1. **数据导入**：支持 CSV / Excel 批量导入消费记录
-2. **高级筛选**：按金额区间、多类别组合筛选
-3. **数据导出**：将筛选结果导出为 CSV / Excel
-4. **单元测试**：补充 `pytest` 对统计函数的单元测试
-5. **前端模块化**：将内联 JS 拆分为独立 ES Module 文件
-6. **生产部署**：Gunicorn / uWSGI + Nginx 反向代理，添加 HTTPS
-7. **安全加固**：输入校验加强、CSRF 防护、速率限制
-
----
-
-## 参考文档
-
-| 文档 | 说明 |
+| 任务 | 位置 |
 |------|------|
-| `DATABASE.md` | 数据库表结构、字段说明、迁移记录 |
-| `static/css/README.md` | CSS 分层架构与维护规范（详版） |
-| `requirements.txt` | Python 依赖声明 |
+| 统计字段 | `get_statistics()` + `frontend.html` |
+| 图表配色 | 模板内 ECharts option / 色板 |
+| 移动端 | `frontend.Mphone.responsive.css` |
+| 默认类别 | `get_all_categories()` + 前端颜色映射 |
+| AI 提示与摘要 | `_AI_SYSTEM_PROMPT`、`_build_expense_context()` |
+| AI 接入点 | `_load_moark_ai_config()`、`api_ai_chat()` |
+
+---
+
+## 13. 本地验证清单
+
+- [ ] `python backend.py` 正常，首页可开  
+- [ ] `/api/statistics`、`/api/date_index`、`/api/categories` 正常  
+- [ ] 三主视图与日期筛选、增删改  
+- [ ] 亮/暗主题下图表可读  
+- [ ] 窄屏布局可用  
+- [ ] 配置 `ai_api_secrets.json` 后 AI 流式回复正常；未配置时错误提示合理  
+
+---
+
+## 14. 已知约束与安全提示
+
+- `date` 须为 `YYYY-MM-DD` 文本排序语义（详见 `DATABASE.md`）。  
+- `amount` 须大于 0，写入两位小数。  
+- **无用户鉴权**：仅适合本机或可信内网。  
+- `SEND_FILE_MAX_AGE_DEFAULT = 0`：开发时静态资源不缓存。  
+- **AI**：依赖外网；密钥仅存于被忽略的本地文件或环境变量，**不要**把 `ai_api_secrets.json` 推送到公开仓库。  
+
+---
+
+## 15. 可扩展方向
+
+1. CSV / Excel 批量导入  
+2. 金额区间、多类别筛选  
+3. 筛选结果导出  
+4. `pytest` 覆盖统计与日期解析  
+5. 前端脚本模块化  
+6. 生产 WSGI + 反向代理 + HTTPS  
+7. CSRF、校验、限流  
+
+---
+
+## 16. 参考文档
+
+| 文件 | 说明 |
+|------|------|
+| `DATABASE.md` | 表结构、字段、迁移、SQL 示例 |
+| `static/css/README.md` | CSS 分层与导入顺序 |
+| `ai_api_secrets.example.json` | AI 配置字段模板 |
+| `requirements.txt` | Python 依赖 |
